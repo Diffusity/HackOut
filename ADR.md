@@ -947,3 +947,40 @@ The vernacular chat (ADR-002/ADR-006) originally had **no access** to the recomm
 
 
 
+
+## ADR-022: Experimental ML Risk Prediction Model
+
+**Status**: ? Accepted (implemented as Feature 26 "RiskNet" — pure-TS logistic regression, from scratch)
+
+**Date**: 2026-09-12 (amended at implementation time)
+
+### Context
+
+We want to demonstrate advanced machine-learning capability while keeping the core decision path deterministic. The dataset provides 15 customers x 6 months of transactions (~90 customer-month observations) — enough to train a small linear model honestly, but far too little for deep learning or gradient-boosted ensembles without overfitting.
+
+An earlier draft of this ADR proposed gradient-boosted trees; that was rejected at implementation time because (a) ~90 rows cannot support a tree ensemble without severe overfitting, and (b) tree ensembles are harder to explain per-prediction than a linear model, which conflicts with our explainability-first narrative (ADR-011, ADR-013).
+
+### Decision
+
+Build a **logistic regression classifier entirely from scratch in pure TypeScript** (no ML libraries, no Python, no new runtime dependencies):
+
+- **Training** (`scripts/train-ml-model.ts`): batch gradient descent with L2 regularization and feature standardization. Training data is derived from `transactions.json` with a **strict month-m -> month-(m+1) label split**: features are computed from month m only, and the label is `1` if the customer missed an EMI in month m+1. This eliminates label leakage (a prior draft labeled each row using the rule engine's verdict on the same signals used as features — a tautology that inflates accuracy).
+- **Artifact** (`src/data/risk-model.json`): committed, versioned, contains `{ featureNames, means, stds, weights, bias, trainingMeta }`. Inference at request time is a dot product — deterministic and instant. Training happens only at build time, never at request time.
+- **Inference** (`src/lib/tools/predictRiskScore.ts`): loads the artifact, returns `{ probability, riskBand, topFactors }` as a `ToolResult` with reason traces. `topFactors` are per-prediction attributions (`weight_i x standardized x_i`, which sum exactly to the logit) — the model's reasoning is displayed, not hidden.
+- **Integration**: advisory-only. `predictRiskScore` is registered consent-gated in the orchestrator and surfaced in the dashboard as an "ML Risk Gauge". `detectStressSignals` may *mention* the ML probability in its reason trace, but the ML output **never flips** `isAtRisk`, never overrides the wellness score, and never changes the recommended intervention. The deterministic rule engine remains the sole decision maker.
+
+### Rationale
+
+- **Innovation signal** — a genuine from-scratch ML pipeline (data prep -> train -> evaluate -> inference -> attribution) with zero ML libraries.
+- **Explainability preserved** — readable weights double as global feature importance; per-prediction attributions plug into the existing reason-trace pattern.
+- **Honest evaluation** — leave-one-customer-out cross-validation reports real generalization; the tool exposes its own training metrics rather than overclaiming.
+- **Deterministic discipline** — fixed-iteration batch gradient descent (no sampling); re-running the trainer produces bit-identical artifacts.
+
+### Consequences
+
+- (+) Judges see real ML craftsmanship: the model's brain (weights) is inspectable on stage.
+- (+) Zero new dependencies; inference is ~30 lines of pure TS.
+- (-) Small-sample caveat: with ~90 training rows, metrics are modest. The tool is **clearly marked experimental and is never used for compliance decisions**; a model-version field in the artifact makes stale-model detection possible.
+- (-) Feature set is limited to what `Signals`/transactions can express; richer features are future work.
+
+---

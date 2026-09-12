@@ -47,9 +47,10 @@
 |---|---|---|---|---|
 | A (P1-Critical) | 1 | **F13 Contextual Timing Engine** | 1.5h | Pure deterministic tool, zero LLM risk; feeds F19 (NBA) and enriches F14 |
 | A (P1-Critical) | 2 | **F15 Fraud/Anomaly Detection** | 1.5h | Pure deterministic tool; Challenge 3 explicitly requires "fraud" — currently unaddressed |
-| A (P1-Critical) | 3 | **F14 Guided Loan Journey** | 2h | Named deliverable; benefits from F13/F15 being callable during the journey |
-| A (P1-Critical) | 4 | **F12 Agentic Eval Suite** | 1.5h | Built last in Phase A so it asserts the *complete* pipeline — "run tests live" mic-drop |
-| B (P2 quick wins) | 5 | **F19 Next-Best-Action** | 1h | Depends on F13 |
+| A (P1-Critical) | 3 | **F26 RiskNet (ML)** | 2h | APPROVED — pure-TS LR from scratch; advisory-only, never decides; F15 + F26 together = "rules + ML" story |
+| A (P1-Critical) | 4 | **F14 Guided Loan Journey** | 2h | Named deliverable; benefits from F13/F15/F26 being callable during the journey |
+| A (P1-Critical) | 5 | **F12 Agentic Eval Suite** | 1.5h | Built last in Phase A so it asserts the *complete* pipeline incl. the ML tool — "run tests live" mic-drop |
+| B (P2 quick wins) | 6 | **F19 Next-Best-Action** | 1h | Depends on F13 |
 | B | 6 | **F18 PII Redaction Layer** | 45m | Defense-in-depth; feeds compliance narrative (F16) |
 | B | 7 | **F17 Behavioral Segmentation** | 45m | Named deliverable; reuses signals + tags |
 | B | 8 | **F16 RBI Compliance Page** | 30m | Static page; stronger after F18 exists to point at |
@@ -448,6 +449,47 @@
 
 ---
 
+## 13a. Feature 26 — RiskNet: From-Scratch ML Risk Prediction (🧠 `predictRiskScore`)
+
+**Status: ✅ APPROVED — implementation starting now** (ADR-022 amended → Accepted; pure-TS logistic regression from scratch, zero ML libraries, zero new runtime deps)
+
+**Goal** (judging: "innovation & technical feasibility"): a genuine hand-built ML pipeline — data prep → train → evaluate → inference → per-prediction attribution — that predicts next-month EMI-miss risk. The model's weights are human-readable and shown in the UI ("the model's brain is inspectable").
+
+### Design (approved)
+- **Trainer** `scripts/train-ml-model.ts` (rewritten from the leaked-label draft):
+  - **No leakage**: features from month *m* only; label = `1` iff customer missed an EMI in month *m+1*. Feature window and label window never overlap.
+  - **Features (8, per customer-month)**: savings rate, salary regularity, EMI-to-income ratio, MoM debit trend, spend volatility (weekly CV), income volatility, category concentration (HHI), txn count (log). All deterministic, all computed from `transactions.json` alone.
+  - **From-scratch LR**: batch gradient descent, L2 (`lambda=0.01`), fixed iterations (no sampling) → **bit-identical artifacts on re-run**. Standardization (z-score) inside the pipeline; artifact stores means/stds.
+  - **Honest evaluation**: leave-one-customer-out CV (accuracy, precision, recall, ROC-AUC where computable) printed to console **and stored in the artifact** (`trainingMeta`).
+  - **Artifact** `src/data/risk-model.json`: `{ version, featureNames, means, stds, weights, bias, trainingMeta }` — committed; inference never trains.
+- **Inference tool** `src/lib/tools/predictRiskScore.ts`:
+  - Loads artifact (module-level cache, no `fs` at request time beyond first load).
+  - Returns `ToolResult<{ probability, riskBand: "low"|"medium"|"high", topFactors: [{feature, contribution, description}] }>` with reason traces incl. **attribution lines** ("62% of this risk score comes from your savings-rate drop").
+  - Attributions = `weight_i × standardized x_i` (sum exactly to the logit — testable invariant).
+  - **Advisory-only**: never flips `isAtRisk`, never overrides wellness score, never changes interventions (supersedes the earlier `isAtRisk = isAtRisk || true` draft — that line was a bug and is removed).
+- **Orchestrator**: registered as a `predictRiskScore` function declaration, consent-gated (transactions consent) + audited like every tool.
+- **UI**: "ML Risk Gauge" card on the dashboard — probability dial, risk band, top attribution factors. Clearly labeled *experimental*.
+- **Type additions** (`src/lib/types.ts`): `RiskPrediction`, `RiskBand`, `RiskFactor`, `RiskModelArtifact`.
+
+### Test validation (all deterministic, no network)
+`src/tests/riskModel.test.ts`:
+1. LR core converges on a synthetic separable dataset (train acc > 0.95).
+2. Same seed + data → bit-identical weights (JSON.stringify equality).
+3. Attributions sum to the logit within 1e-9 (per prediction, 10 random fixtures).
+4. Artifact schema: version, 8 featureNames, weights/means/stds lengths match, trainingMeta present.
+5. **Leakage guard**: for every training row, assert feature window (month m) ∩ label window (month m+1) = ∅.
+6. `predictRiskScore` on fixture signals → probability in [0,1], band thresholds correct, topFactors sorted by |contribution| desc.
+7. Consent-denied customer → blocked with reason trace, no model call.
+8. Verify script `scripts/verify-risk.ts`: runs the 3 personas end-to-end, asserts reason traces contain attribution lines and ML probability is mentioned (not deciding) in stress output.
+
+### Commits
+1. `feat(ml): pure-TS logistic regression core (from scratch) + deterministic tests`
+2. `feat(ml): leakage-free training pipeline + committed risk-model artifact with LOCO CV metrics`
+3. `feat(ml): predictRiskScore tool (consent-gated, advisory-only) + orchestrator registration + risk gauge UI`
+4. `docs: ADR-022 accepted (ML risk model) + strategy doc RiskNet + implementation plan status (F26)`
+
+---
+
 ## 15. Status Tracking
 
 | # | Feature | Status | Evidence |
@@ -467,6 +509,7 @@
 | 24 | Architecture Page | ⬜ pending approval | — |
 | 23 | Observability | ⬜ pending approval | — |
 | 25 | Fairness Audit | ⬜ pending approval | — |
+| 26 | RiskNet ML Risk Model | 🟨 IN PROGRESS (approved) | ADR-022 accepted; LR core + tests first |
 
 ## 16. Standing Decisions (record once, apply everywhere)
 

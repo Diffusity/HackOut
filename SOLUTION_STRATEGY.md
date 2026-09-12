@@ -639,6 +639,7 @@ These features address **explicit words in the problem statement** that judges w
 | **13** | **Contextual Timing Engine** | 1.5h | "at the **right moment**" (Challenge 1) | 🔴 CRITICAL — Adds "when" intelligence to recommendations. Most teams only answer "what." |
 | **14** | **Guided Loan Journey Flow** | 2h | "**loan journey**" (deliverable), "loan application, **KYC**" (Challenge 2) | 🔴 CRITICAL — Multi-step loan application via chatbot with progress tracking. Literally a named deliverable. |
 | **15** | **Fraud/Anomaly Detection** | 1.5h | "**fraud**", "unusual transaction patterns", "sudden **behavior change**" (Challenge 3) | 🔴 CRITICAL — We address stress but NOT fraud. The problem explicitly says both. |
+| **26** | **RiskNet — From-Scratch ML Risk Model** | 2h | "innovation & technical feasibility" (judging) | 🔴 CRITICAL — Logistic regression built from scratch in pure TS (no ML libs): data prep → train → LOCO-CV → inference → per-prediction attributions. The model's weights are readable and shown in the UI. Advisory-only (ADR-022). |
 
 ### P2 — High Impact Quick Wins
 
@@ -703,7 +704,32 @@ These features address **explicit words in the problem statement** that judges w
 }
 ```
 
-### Tool 8: 🛡️ Guardrail Pipeline
+### Tool 9: 🧠 `predictRiskScore(customerId)` — RiskNet ML Risk Model (Feature 26, ADR-022)
+**Type**: From-scratch logistic regression, pure TypeScript (no ML libraries)
+**Role**: Predicts next-month EMI-miss probability from this month's transaction features. **Advisory-only** — the deterministic rule engine always makes the final call.
+
+**Pipeline (all hand-built)**:
+1. **Data prep**: customer-month rows from `transactions.json`; strict month-m → month-(m+1) label split (no leakage)
+2. **Train**: batch gradient descent + L2 + standardization, fixed iterations (deterministic, bit-identical artifacts)
+3. **Evaluate**: leave-one-customer-out CV (accuracy/precision/recall/AUC) stored in the committed artifact
+4. **Infer**: dot product against `src/data/risk-model.json`; sigmoid → probability
+5. **Explain**: top attribution factors = `weight_i × standardized x_i` (sums exactly to the logit)
+
+**Output**:
+```typescript
+{
+  probability: 0.73,             // P(EMI missed next month)
+  riskBand: "high",              // low < 0.33 ≤ medium < 0.66 ≤ high
+  topFactors: [
+    { feature: "savingsRate", contribution: 1.42, description: "Savings rate dropped well below your usual level" }
+  ],
+  modelVersion: "risknet-1.0"
+}
+```
+
+**Guardrails**: experimental label; never used for compliance decisions; never flips `isAtRisk` or overrides wellness scores; consent-gated (transactions) + audited.
+
+### Tool 10: 🛡️ Guardrail Pipeline
 **Type**: Deterministic validation layer
 **Position**: Wraps ALL LLM calls.
 
@@ -731,7 +757,7 @@ These features address **explicit words in the problem statement** that judges w
 
 | Judging Criterion | Phase 1 Features | Phase 2 Additions | Gap Closed? |
 |---|---|---|---|
-| Innovation & technical feasibility | Agentic orchestrator + tool-calling | Guardrails, Eval Suite, Timing Engine | ✅ Fully covered |
+| Innovation & technical feasibility | Agentic orchestrator + tool-calling | Guardrails, Eval Suite, Timing Engine, **RiskNet (from-scratch ML with attribution)** | ✅ Fully covered — hand-built ML pipeline: data prep → train → CV → inference → explain |
 | Depth of personalization vs. genuine benefit | Wellness Gate + Reason Traces | Timing ("right moment"), Next-Best-Action, Behavioral Segmentation | ✅ "What + When + Why" trifecta |
 | Explainability & RBI/regulatory compliance | Reason Traces + Consent Ledger | RBI Compliance Page, Fairness Audit, PII Redaction | ✅ Compliance at every layer |
 | Usability for vernacular-first users | Vernacular Chat + Voice | Multi-Language (Tamil, Telugu), Guided Loan Journey | ✅ Beyond Hindi, beyond chat |
