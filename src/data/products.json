@@ -1,0 +1,65 @@
+[
+  {
+    "id": "RD",
+    "name": "Recurring Deposit",
+    "category": "savings",
+    "minAmount": 500,
+    "description": "Save a fixed amount every month and earn guaranteed interest. Ideal for building a savings habit."
+  },
+  {
+    "id": "SIP",
+    "name": "Systematic Investment Plan",
+    "category": "investment",
+    "minAmount": 500,
+    "description": "Invest small amounts regularly in mutual funds. Great for long-term wealth building."
+  },
+  {
+    "id": "FD",
+    "name": "Fixed Deposit",
+    "category": "savings",
+    "minAmount": 10000,
+    "description": "Deposit a lump sum and earn higher interest. Your money is safe and grows steadily."
+  },
+  {
+    "id": "CREDIT_CARD",
+    "name": "Credit Card",
+    "category": "credit",
+    "minAmount": 0,
+    "description": "A credit line for everyday purchases with cashback and rewards."
+  },
+  {
+    "id": "PERSONAL_LOAN",
+    "name": "Personal Loan",
+    "category": "credit",
+    "minAmount": 50000,
+    "description": "Unsecured loan for personal needs — medical emergencies, education, or home renovation."
+  },
+  {
+    "id": "VEHICLE_LOAN",
+    "name": "Vehicle Loan",
+    "category": "credit",
+    "minAmount": 100000,
+    "description": "Affordable financing for two-wheelers and four-wheelers with flexible EMI options."
+  },
+  {
+    "id": "HOME_LOAN",
+    "name": "Home Loan",
+    "category": "credit",
+    "minAmount": 500000,
+    "description": "Long-term financing for buying or building your dream home."
+  },
+  {
+    "id": "HEALTH_INSURANCE",
+    "name": "Health Insurance",
+    "category": "insurance",
+    "minAmount": 5000,
+    "description": "Comprehensive health coverage for you and your family."
+  },
+  {
+    "id": "EMI_RESTRUCTURE",
+    "name": "EMI Restructuring",
+    "category": "support",
+    "minAmount": 0,
+    "description": "Restructure your existing EMIs to reduce monthly burden during financial stress."
+  }
+]

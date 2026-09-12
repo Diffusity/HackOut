@@ -1,0 +1,182 @@
+[
+  {
+    "customerId": "CUST_PRIYA",
+    "name": "Priya Sharma",
+    "segment": "salaried",
+    "cityTier": 3,
+    "preferredLanguage": "en",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_RAMESH",
+    "name": "Ramesh Kumar",
+    "segment": "gig",
+    "cityTier": 2,
+    "preferredLanguage": "hi",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_SUNITA",
+    "name": "Sunita Devi",
+    "segment": "self_employed",
+    "cityTier": 3,
+    "preferredLanguage": "hi",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_AMIT",
+    "name": "Amit Patel",
+    "segment": "salaried",
+    "cityTier": 2,
+    "preferredLanguage": "en",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_NEHA",
+    "name": "Neha Gupta",
+    "segment": "salaried",
+    "cityTier": 2,
+    "preferredLanguage": "hi",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_VIKRAM",
+    "name": "Vikram Singh",
+    "segment": "salaried",
+    "cityTier": 3,
+    "preferredLanguage": "hi",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_LAKSHMI",
+    "name": "Lakshmi Devi",
+    "segment": "self_employed",
+    "cityTier": 4,
+    "preferredLanguage": "te",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_ARJUN",
+    "name": "Arjun Reddy",
+    "segment": "gig",
+    "cityTier": 2,
+    "preferredLanguage": "te",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_MEENA",
+    "name": "Meena Kumari",
+    "segment": "salaried",
+    "cityTier": 3,
+    "preferredLanguage": "hi",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_RAJESH",
+    "name": "Rajesh Verma",
+    "segment": "self_employed",
+    "cityTier": 3,
+    "preferredLanguage": "hi",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_ANJALI",
+    "name": "Anjali Nair",
+    "segment": "salaried",
+    "cityTier": 2,
+    "preferredLanguage": "en",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_SURESH",
+    "name": "Suresh Yadav",
+    "segment": "gig",
+    "cityTier": 4,
+    "preferredLanguage": "hi",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_KAVITA",
+    "name": "Kavita Joshi",
+    "segment": "salaried",
+    "cityTier": 2,
+    "preferredLanguage": "en",
+    "consent": {
+      "transactions": true,
+      "location": false,
+      "spendCategories": false
+    }
+  },
+  {
+    "customerId": "CUST_MOHAN",
+    "name": "Mohan Das",
+    "segment": "self_employed",
+    "cityTier": 4,
+    "preferredLanguage": "bn",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  },
+  {
+    "customerId": "CUST_DEEPA",
+    "name": "Deepa Iyer",
+    "segment": "salaried",
+    "cityTier": 2,
+    "preferredLanguage": "ta",
+    "consent": {
+      "transactions": true,
+      "location": true,
+      "spendCategories": true
+    }
+  }
+]

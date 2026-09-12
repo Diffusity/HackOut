@@ -14,12 +14,20 @@ export interface Customer {
 export interface Transaction {
   txnId: string;
   customerId: string;
-  timestamp: Date;
+  timestamp: string; // ISO 8601
   amount: number;
   type: "credit" | "debit";
   category: "salary" | "emi" | "upi_spend" | "bill" | "transfer" | "investment" | "other";
   merchant?: string;
   mode: "UPI" | "NEFT" | "IMPS" | "ATM" | "POS" | "auto_debit";
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  category: "savings" | "investment" | "credit" | "insurance" | "support";
+  minAmount: number;
+  description: string;
 }
 
 export interface Signals {
