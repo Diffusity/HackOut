@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomerById, updateCustomerConsent } from "@/lib/data";
 import { logAuditEntry } from "@/lib/audit";
-import { initRequest } from "@/lib/requestContext";
+import { initRequest, finaliseRequest } from "@/lib/requestContext";
+import { recordConsentChange } from "@/lib/db/repository";
 import { CONSENT_COOKIE, serializeOverrides } from "@/lib/consentStore";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    initRequest(request);
+    await initRequest(request);
     const p = await params;
     const customer = getCustomerById(p.id);
     if (!customer) {
@@ -29,7 +30,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    initRequest(request);
+    await initRequest(request);
     const p = await params;
     const body = await request.json();
     const { consent } = body;
@@ -46,14 +47,26 @@ export async function POST(
     const oldConsent = { ...customer.consent };
     const updatedCustomer = updateCustomerConsent(p.id, consent);
 
-    const scopes: { key: "transactions" | "spendCategories" | "location"; label: string }[] = [
-      { key: "transactions", label: "transactions" },
-      { key: "spendCategories", label: "spend categories" },
-      { key: "location", label: "location" },
+    const scopes: {
+      key: "transactions" | "spendCategories" | "location";
+      label: string;
+      purpose: string;
+    }[] = [
+      { key: "transactions", label: "transactions", purpose: "Work out income, spending and savings patterns" },
+      { key: "spendCategories", label: "spend categories", purpose: "Distinguish an EMI from an everyday debit" },
+      { key: "location", label: "location", purpose: "Match festival timing and local branch support" },
     ];
 
     for (const scope of scopes) {
       if (oldConsent[scope.key] !== consent[scope.key]) {
+        // Append to the durable consent ledger. DPDP asks what a customer had
+        // consented to at a given moment, which a mutable column cannot answer.
+        await recordConsentChange(
+          p.id,
+          scope.key,
+          consent[scope.key],
+          scope.purpose
+        );
         logAuditEntry({
           timestamp: new Date(),
           customerId: p.id,
@@ -70,6 +83,8 @@ export async function POST(
 
     // Persist the change client-side: serverless instances share no memory, so
     // the cookie is the authoritative record of any consent change (ADR-022).
+    await finaliseRequest();
+
     const response = NextResponse.json(updatedCustomer?.consent);
     response.cookies.set(CONSENT_COOKIE, serializeOverrides(), {
       httpOnly: false,

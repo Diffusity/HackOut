@@ -44,6 +44,7 @@ interface RecommendationPayload {
   model: ModelVerdict | null;
   segment: { name: string; savingsPercentile: number; share: number } | null;
   nextBestAction: NextBestAction;
+  dataSource?: "database" | "seed";
   channels: { sms: string; ivr: string[] };
   auditLogs: AuditRecord[];
   chain: ChainStatus;
@@ -131,6 +132,11 @@ export function Dashboard() {
             <span className="hidden text-xs text-fg-subtle sm:inline">
               Explainable banking for Bharat
             </span>
+            {payload?.dataSource && (
+              <Badge variant="muted" title={payload.dataSource === "database" ? "Reading from Postgres" : "Reading from the bundled JSON seed"}>
+                {payload.dataSource === "database" ? "Postgres" : "Seed data"}
+              </Badge>
+            )}
           </div>
 
           <nav className="flex items-center gap-1 text-xs">
@@ -226,6 +232,8 @@ export function Dashboard() {
                     timing={payload?.timing}
                     narrationSource={payload?.narrationSource}
                     loading={recLoading}
+                    customerId={customerId}
+                    asOf={payload?.asOf}
                   />
                   {payload && (
                     <DecisionExplainer

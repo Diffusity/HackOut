@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    initRequest(request);
+    await initRequest(request);
     const p = await params;
     const customer = getCustomerById(p.id);
     if (!customer) {

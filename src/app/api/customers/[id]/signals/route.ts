@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ctx = initRequest(request);
+    const ctx = await initRequest(request);
     const p = await params;
     const signals = getCustomerSignals(p.id, ctx.now);
     return NextResponse.json(signals);

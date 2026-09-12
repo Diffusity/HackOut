@@ -5,7 +5,7 @@ import { logAuditEntry } from "@/lib/audit";
 import { getRecommendationContext } from "@/lib/tools/getRecommendationContext";
 import { createChatModel, sendWithRetry } from "@/lib/gemini";
 import { buildNarration } from "@/lib/narration";
-import { initRequest } from "@/lib/requestContext";
+import { initRequest, finaliseRequest } from "@/lib/requestContext";
 import { assignSegment } from "@/lib/ml/model";
 import { computeStressCore } from "@/lib/tools/detectStressSignals";
 
@@ -17,7 +17,7 @@ export async function POST(
   { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
-    const ctx = initRequest(request);
+    const ctx = await initRequest(request);
     const { customerId } = await params;
     const body = await request.json();
     const { message, language = "en", history = [] } = body;
@@ -51,6 +51,7 @@ export async function POST(
 
       // `blocked` lets the UI mark this turn visibly rather than passing a
       // refusal off as a normal answer.
+      await finaliseRequest();
       return NextResponse.json({ reply, language, blocked: true, blockReason: inputGuard.reason });
     }
 
@@ -169,6 +170,7 @@ ${context.reasonTrace.map((t, i) => `  ${i + 1}. ${t}`).join("\n")}
       source = "deterministic";
     }
 
+    await finaliseRequest();
     return NextResponse.json({ reply, language, source });
   } catch (error) {
     console.error("Chat API error:", error);

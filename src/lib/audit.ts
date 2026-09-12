@@ -17,6 +17,36 @@ const GENESIS = "0".repeat(64);
 
 const auditLogs: AuditRecord[] = [];
 
+/**
+ * Where the chain continues from (ADR-032). Without a database this stays at
+ * genesis and the chain lives for the life of the process. With one, each
+ * request seeds these from the persisted head, so hashes chain continuously
+ * across serverless instances and restarts rather than starting over — which
+ * is what turns "we keep a log" into a record that survives the demo.
+ */
+let chainBaseSeq = 0;
+let chainBaseHash = GENESIS;
+/** Index into auditLogs of the first record not yet written to the database. */
+let flushedUpTo = 0;
+
+export function seedAuditChain(head: { seq: number; hash: string } | null): void {
+  if (!head) return;
+  // Only move forward. A stale read must never rewind the chain we are building.
+  if (head.seq + 1 > chainBaseSeq + auditLogs.length) {
+    chainBaseSeq = head.seq + 1;
+    chainBaseHash = head.hash;
+    auditLogs.length = 0;
+    flushedUpTo = 0;
+  }
+}
+
+/** Returns records not yet persisted and marks them as handed off. */
+export function flushAuditToDatabase(): AuditRecord[] {
+  const pending = auditLogs.slice(flushedUpTo);
+  flushedUpTo = auditLogs.length;
+  return pending;
+}
+
 function canonicalize(entry: AuditEntry, seq: number, prevHash: string): string {
   // Stable key order — hashing must never depend on JS property ordering.
   return JSON.stringify([
@@ -37,8 +67,8 @@ export function hashEntry(entry: AuditEntry, seq: number, prevHash: string): str
 }
 
 export function logAuditEntry(entry: AuditEntry): AuditRecord {
-  const seq = auditLogs.length;
-  const prevHash = seq === 0 ? GENESIS : auditLogs[seq - 1].hash;
+  const seq = chainBaseSeq + auditLogs.length;
+  const prevHash = auditLogs.length === 0 ? chainBaseHash : auditLogs[auditLogs.length - 1].hash;
   const record: AuditRecord = { ...entry, seq, prevHash, hash: hashEntry(entry, seq, prevHash) };
   auditLogs.push(record);
   console.log(`[AUDIT#${seq}] ${entry.customerId} - ${entry.action} - ${record.hash.slice(0, 12)}`);
@@ -61,9 +91,9 @@ export interface ChainVerification {
   headHash: string;
 }
 
-/** Recomputes every hash from genesis — the integrity proof shown in the UI. */
+/** Recomputes every hash held in this process — the integrity proof shown in the UI. */
 export function verifyChain(): ChainVerification {
-  let prevHash = GENESIS;
+  let prevHash = chainBaseHash;
   for (const record of auditLogs) {
     const expected = hashEntry(record, record.seq, prevHash);
     if (expected !== record.hash || record.prevHash !== prevHash) {
@@ -82,4 +112,7 @@ export function __tamperForTest(seq: number, decision: string): void {
 
 export function __resetAuditForTest(): void {
   auditLogs.length = 0;
+  chainBaseSeq = 0;
+  chainBaseHash = GENESIS;
+  flushedUpTo = 0;
 }

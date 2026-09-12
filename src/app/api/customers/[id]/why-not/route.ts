@@ -3,7 +3,7 @@ import { getCustomerSignals } from "@/lib/tools/getCustomerSignals";
 import { whyNot } from "@/lib/tools/counterfactuals";
 import { checkConsent } from "@/lib/tools/checkConsent";
 import { logAuditEntry } from "@/lib/audit";
-import { initRequest } from "@/lib/requestContext";
+import { initRequest, finaliseRequest } from "@/lib/requestContext";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ctx = initRequest(request);
+    const ctx = await initRequest(request);
     const { id } = await params;
     const product = request.nextUrl.searchParams.get("product");
 
@@ -45,6 +45,7 @@ export async function GET(
       reasonTrace: [answer.message],
     });
 
+    await finaliseRequest();
     return NextResponse.json(answer);
   } catch (error) {
     console.error(error);

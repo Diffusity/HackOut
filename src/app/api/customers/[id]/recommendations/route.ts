@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AgentOrchestrator } from "@/lib/agents/orchestrator";
 import { getAuditLogs, verifyChain } from "@/lib/audit";
-import { initRequest } from "@/lib/requestContext";
+import { getPersistedAudit, verifyPersistedChain } from "@/lib/db/repository";
+import { initRequest, finaliseRequest } from "@/lib/requestContext";
 import { getRecommendationContext } from "@/lib/tools/getRecommendationContext";
 import { explainCounterfactuals } from "@/lib/tools/counterfactuals";
 import { computeStressCore } from "@/lib/tools/detectStressSignals";
@@ -23,7 +24,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ctx = initRequest(request);
+    const ctx = await initRequest(request);
     const { id } = await params;
     const lang = (request.nextUrl.searchParams.get("lang") as Lang) ?? "en";
 
@@ -45,6 +46,12 @@ export async function GET(
       wellnessScore: decisionContext.wellnessScore,
     });
 
+    // Persist this request's audit records, then read the durable chain back.
+    // What the UI shows is the state of the LEDGER, not of this process.
+    await finaliseRequest();
+    const persistedAudit = ctx.source === "database" ? await getPersistedAudit(id) : [];
+    const persistedChain = ctx.source === "database" ? await verifyPersistedChain() : null;
+
     return NextResponse.json({
       recommendation,
       timing: result.timing?.output ?? null,
@@ -57,8 +64,9 @@ export async function GET(
         sms: buildSms({ recommendation, signals, lang }),
         ivr: buildIvr({ recommendation, signals, lang }),
       },
-      auditLogs: getAuditLogs(id),
-      chain: verifyChain(),
+      auditLogs: persistedAudit.length > 0 ? persistedAudit : getAuditLogs(id),
+      chain: persistedChain ?? verifyChain(),
+      dataSource: ctx.source,
       asOf: ctx.now?.toISOString() ?? null,
     });
   } catch (error) {

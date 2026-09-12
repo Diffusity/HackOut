@@ -5,6 +5,7 @@ import { Recommendation, TimingSignals } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { ChevronDown, Clock, EyeOff, ShieldOff } from "lucide-react";
+import { LoanOfferAction } from "./LoanOfferAction";
 
 const PRODUCT_LABELS: Record<string, string> = {
   RD: "Recurring Deposit",
@@ -19,16 +20,22 @@ const PRODUCT_LABELS: Record<string, string> = {
   NONE: "No recommendation",
 };
 
+const LENDING_PRODUCTS = ["PERSONAL_LOAN", "VEHICLE_LOAN", "HOME_LOAN"];
+
 export function RecommendationCard({
   recommendation,
   timing,
   narrationSource,
   loading,
+  customerId,
+  asOf,
 }: {
   recommendation: Recommendation | null;
   timing?: TimingSignals | null;
   narrationSource?: "llm" | "deterministic";
   loading: boolean;
+  customerId?: string;
+  asOf?: string | null;
 }) {
   const [traceOpen, setTraceOpen] = useState(false);
 
@@ -111,6 +118,10 @@ export function RecommendationCard({
         )}
 
         <p className="text-sm leading-relaxed">{recommendation.plainLanguageExplanation}</p>
+
+        {customerId && LENDING_PRODUCTS.includes(recommendation.product) && !suppressed && (
+          <LoanOfferAction customerId={customerId} product={recommendation.product} asOf={asOf} />
+        )}
 
         <div className="border-t border-line pt-3">
           <button
