@@ -21,6 +21,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Badge } from "./ui/badge";
 import { SIPNudgeBanner } from "./SIPNudgeBanner";
 import { CreditOfferModal } from "./CreditOfferModal";
+import { WhatIfSimulator } from "./WhatIfSimulator";
 import {
   AuditRecord,
   AuditEntry,
@@ -158,9 +159,6 @@ export function Dashboard() {
           </button>
         </div>
       )}
-      {/* New SIP Nudge Banner */}
-      <SIPNudgeBanner customer={customer} />
-      <CreditOfferModal customer={customer} />
 
       <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-8">
@@ -188,6 +186,18 @@ export function Dashboard() {
               className="rounded px-2 py-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
             >
               Fairness
+            </Link>
+            <Link
+              href="/portfolio"
+              className="rounded px-2 py-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              Portfolio
+            </Link>
+            <Link
+              href="/funding"
+              className="rounded px-2 py-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              Funding
             </Link>
             <Link
               href="/compliance"
@@ -266,6 +276,7 @@ export function Dashboard() {
             <div className="space-y-5 lg:col-span-6">
               {hasConsent ? (
                 <>
+                  <SIPNudgeBanner customer={customer} />
                   <RecommendationCard
                     recommendation={payload?.recommendation ?? null}
                     timing={payload?.timing}
@@ -289,6 +300,7 @@ export function Dashboard() {
             </div>
 
             <div className="space-y-5 lg:col-span-3">
+              <WhatIfSimulator />
               <ConsentManager
                 customerId={customerId}
                 onConsentChange={() => setRefreshTrigger((n) => n + 1)}
@@ -321,6 +333,8 @@ export function Dashboard() {
           </div>
         )}
       </main>
+
+      <CreditOfferModal customer={customer} />
 
       <ChatWidget
         customerId={customerId}
