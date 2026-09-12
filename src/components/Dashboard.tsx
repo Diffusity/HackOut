@@ -9,6 +9,7 @@ import { RiskGauge } from "./RiskGauge";
 import { RecommendationCard } from "./RecommendationCard";
 import { AuditLogPanel, ChainStatus } from "./AuditLogPanel";
 import { IncomeSpendChart } from "./IncomeSpendChart";
+import { AnomalyCard } from "./AnomalyCard";
 import { ChatWidget } from "./ChatWidget";
 import { ConsentManager } from "./ConsentManager";
 import { DecisionExplainer, Counterfactual } from "./DecisionExplainer";
@@ -45,6 +46,7 @@ interface RecommendationPayload {
   model: ModelVerdict | null;
   segment: { name: string; savingsPercentile: number; share: number } | null;
   nextBestAction: NextBestAction;
+  anomalies: any;
   dataSource?: "database" | "seed";
   channels: { sms: string; ivr: string[] };
   auditLogs: AuditRecord[];
@@ -240,6 +242,7 @@ export function Dashboard() {
               </div>
               <WellnessGauge data={wellnessData} />
               <RiskGauge data={riskData} />
+              <AnomalyCard data={payload?.anomalies ?? null} />
             </div>
 
             {/* Main Column: Chart & Recommendation (Span 6) */}

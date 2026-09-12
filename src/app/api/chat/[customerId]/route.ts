@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomerById } from "@/lib/data";
 import { checkInputGuardrails, checkOutputGuardrails, buildScopeRefusal } from "@/lib/guardrails";
+import { redactPII } from "@/lib/guardrails/piiRedaction";
 import { logAuditEntry } from "@/lib/audit";
 import { getRecommendationContext } from "@/lib/tools/getRecommendationContext";
 import { createChatModel, sendWithRetry } from "@/lib/gemini";
@@ -27,8 +28,22 @@ export async function POST(
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
+    // ---- PII Redaction Layer (Feature 18) ----
+    const { redactedText, findings: piiFindings } = redactPII(message);
+    if (piiFindings.length > 0) {
+      logAuditEntry({
+        timestamp: new Date(),
+        customerId,
+        action: "pii_redaction",
+        dataAccessed: [],
+        consentVerified: false,
+        decision: `Redacted PII: ${piiFindings.join(", ")}`,
+        reasonTrace: [],
+      });
+    }
+
     // ---- Input guardrails (ADR-016 + ADR-028) — BEFORE any LLM call ----
-    const inputGuard = checkInputGuardrails(message);
+    const inputGuard = checkInputGuardrails(redactedText);
     if (!inputGuard.safe) {
       const isInjection = inputGuard.reason === "Prompt injection attempt detected";
       logAuditEntry({
@@ -137,7 +152,7 @@ ${context.reasonTrace.map((t, i) => `  ${i + 1}. ${t}`).join("\n")}
 
     let result;
     try {
-      result = await sendWithRetry(chat, message, 2);
+      result = await sendWithRetry(chat, redactedText, 2);
     } catch (llmError: any) {
       console.log("Chat LLM error, using grounded fallback:", llmError?.message ?? llmError);
       return NextResponse.json({

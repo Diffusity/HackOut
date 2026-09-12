@@ -6,6 +6,7 @@ import { initRequest, finaliseRequest } from "@/lib/requestContext";
 import { getRecommendationContext } from "@/lib/tools/getRecommendationContext";
 import { explainCounterfactuals } from "@/lib/tools/counterfactuals";
 import { computeStressCore } from "@/lib/tools/detectStressSignals";
+import { detectAnomalies } from "@/lib/tools/detectAnomalies";
 import { assignSegment } from "@/lib/ml/model";
 import { resolveNextBestAction } from "@/lib/nextBestAction";
 import { buildSms, buildIvr, Lang } from "@/lib/narration";
@@ -38,12 +39,16 @@ export async function GET(
     const model = signals ? computeStressCore(signals).model : null;
     const segment = signals ? assignSegment(signals) : null;
     const counterfactuals = signals ? explainCounterfactuals(signals, recommendation.product) : [];
+    
+    // Feature 15: Fraud & Anomaly detection overrides everything if triggered
+    const anomalyRes = detectAnomalies(id).output;
 
     const nextBestAction = resolveNextBestAction({
       recommendation,
       timing: result.timing?.output ?? null,
       model,
       wellnessScore: decisionContext.wellnessScore,
+      anomalies: anomalyRes,
     });
 
     // Persist this request's audit records, then read the durable chain back.
@@ -60,6 +65,7 @@ export async function GET(
       model,
       segment,
       nextBestAction,
+      anomalies: anomalyRes,
       channels: {
         sms: buildSms({ recommendation, signals, lang }),
         ivr: buildIvr({ recommendation, signals, lang }),

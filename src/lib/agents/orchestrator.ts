@@ -5,6 +5,7 @@ import { recommendProduct } from "../tools/recommendProduct";
 import { detectStressSignals, computeStressCore } from "../tools/detectStressSignals";
 import { computeTimingSignals } from "../tools/computeTimingSignals";
 import { predictRiskScore } from "../tools/predictRiskScore";
+import { detectAnomalies } from "../tools/detectAnomalies";
 import { applyWellnessGate } from "../tools/wellnessGate";
 import { logAuditEntry } from "../audit";
 import { Recommendation, RiskPrediction, TimingSignals, ToolResult } from "../types";
@@ -225,6 +226,23 @@ export class AgentOrchestrator {
               dataAccessed: ["transactions", "signals"],
               consentVerified: true,
               decision: `ML risk: ${(res.output.probability * 100).toFixed(0)}% ${res.output.riskBand} (${res.output.modelVersion})`,
+              reasonTrace: res.reasonTrace,
+            });
+          }
+        } else if (call.name === "detectAnomalies") {
+          if (!consentGranted) {
+            functionResponse = { error: "Consent not granted. Cannot detect anomalies." };
+          } else {
+            const res = detectAnomalies((call.args as any).customerId as string);
+            functionResponse = res.output;
+            
+            logAuditEntry({
+              timestamp: new Date(),
+              customerId: this.customerId,
+              action: "detectAnomalies",
+              dataAccessed: ["transactions"],
+              consentVerified: true,
+              decision: `Fraud risk: ${res.output.overallRiskScore} (${res.output.anomalies.length} anomalies)`,
               reasonTrace: res.reasonTrace,
             });
           }

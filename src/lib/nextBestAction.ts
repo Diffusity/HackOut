@@ -10,7 +10,7 @@ import { productName } from "./narration";
  * it, and ordered so that protection always outranks selling.
  */
 
-export type ActionSource = "wellness" | "model" | "timing" | "recommendation";
+export type ActionSource = "fraud" | "wellness" | "model" | "timing" | "recommendation";
 
 export interface NextBestAction {
   source: ActionSource;
@@ -26,8 +26,21 @@ export function resolveNextBestAction(input: {
   timing?: TimingSignals | null;
   model?: ModelVerdict | null;
   wellnessScore?: number | null;
+  anomalies?: { overallRiskScore: number; anomalies: any[] } | null;
 }): NextBestAction {
-  const { recommendation, timing, model, wellnessScore } = input;
+  const { recommendation, timing, model, wellnessScore, anomalies } = input;
+
+  // 0. Fraud / Security is the absolute highest priority
+  if (anomalies && anomalies.overallRiskScore >= 70) {
+    const topAnomaly = anomalies.anomalies[0];
+    return {
+      source: "fraud",
+      title: "Security Hold: Unusual Activity Detected",
+      detail: `We detected unusual activity on your account (${topAnomaly?.description || "High risk pattern"}). Your account features have been temporarily restricted to protect your funds.`,
+      ctaLabel: "Verify Activity",
+      protective: true,
+    };
+  }
 
   // 1. If the model is the reason the gate closed, say that — otherwise the
   // banner would quote a healthy rules score while withholding an offer, which

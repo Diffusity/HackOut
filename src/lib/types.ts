@@ -137,3 +137,17 @@ export interface RiskModelArtifact {
     caveat: string;
   };
 }
+
+export interface Anomaly {
+  type: string;
+  severity: "low" | "medium" | "high";
+  description: string;
+  txnId: string;
+}
+
+export interface AnomalyReport {
+  customerId: string;
+  anomalies: Anomaly[];
+  overallRiskScore: number;
+  reasonTrace: string[];
+}
