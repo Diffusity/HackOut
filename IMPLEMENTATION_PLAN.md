@@ -451,7 +451,13 @@
 
 ## 13a. Feature 26 — RiskNet: From-Scratch ML Risk Prediction (🧠 `predictRiskScore`)
 
-**Status: ✅ APPROVED — implementation starting now** (ADR-022 amended → Accepted; pure-TS logistic regression from scratch, zero ML libraries, zero new runtime deps)
+**Status: ✅ DONE** — committed in `7a8f18c` (LR core + trainer + artifact + 59 tests) and `e2e648f` (tool + orchestrator + UI + verify). Gates green: 59/59 risk tests, 21/21 timing tests, 18/18 verify-risk, `tsc --noEmit`, `npm run build`. (ADR-022 amended → Accepted; docs commit `513bb7a`.)
+
+**Test evidence (verify-risk)**:
+- CUST_PRIYA p=0.007 low = | savingsRate +1.055, incomeVolatility −0.754, momDebitTrend +0.715
+- CUST_SUNITA p=0.988 high | savingsRate +7.261, logTxnCount +1.159, incomeVolatility +0.819
+- CUST_RAMESH p=0.007 low | savingsRate −0.795, salaryRegularity +0.653, emiToIncomeRatio −0.466
+- Trainer: train acc=0.987 prec=0.667 rec=1.000 auc=1.000 · LOCO-CV acc=0.957 (70 held-out) — reported honestly in the artifact's `trainingMeta.caveat`.
 
 **Goal** (judging: "innovation & technical feasibility"): a genuine hand-built ML pipeline — data prep → train → evaluate → inference → per-prediction attribution — that predicts next-month EMI-miss risk. The model's weights are human-readable and shown in the UI ("the model's brain is inspectable").
 
@@ -509,7 +515,7 @@
 | 24 | Architecture Page | ⬜ pending approval | — |
 | 23 | Observability | ⬜ pending approval | — |
 | 25 | Fairness Audit | ⬜ pending approval | — |
-| 26 | RiskNet ML Risk Model | 🟨 IN PROGRESS (approved) | ADR-022 accepted; LR core + tests first |
+| 26 | RiskNet ML Risk Model | ✅ DONE (7a8f18c, e2e648f) | 59/59 risk tests, 18/18 verify-risk, build green |
 
 ## 16. Standing Decisions (record once, apply everywhere)
 
