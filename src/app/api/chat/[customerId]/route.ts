@@ -4,6 +4,7 @@ import { checkInputGuardrails, checkOutputGuardrails, buildScopeRefusal } from "
 import { logAuditEntry } from "@/lib/audit";
 import { getRecommendationContext } from "@/lib/tools/getRecommendationContext";
 import { createChatModel, sendWithRetry } from "@/lib/gemini";
+import { buildNarration } from "@/lib/narration";
 import { initRequest } from "@/lib/requestContext";
 import { assignSegment } from "@/lib/ml/model";
 import { computeStressCore } from "@/lib/tools/detectStressSignals";
@@ -194,13 +195,12 @@ function buildGroundedFallbackReply(
       ? "Maaf kijiye, mujhe abhi aapki profile ka vivaran nahi mil raha."
       : "Sorry, I don't have your profile details right now.";
   }
-  const topReasons = context.recommendation.reasonTrace
-    .filter((t) => !t.startsWith("[WELLNESS GATE SUPPRESSION]"))
-    .slice(0, 3)
-    .join("; ");
-  const gateNote =
-    context.gateStatus === "suppressed"
-      ? " Note: an earlier offer was suppressed by our Wellness Gate because we detected financial stress — we're offering support instead."
-      : "";
-  return `We recommended ${context.recommendation.product.replace(/_/g, " ").toLowerCase()} because: ${topReasons}.${gateNote}`;
+  // The same grounded template the dashboard uses (ADR-024) — readable prose
+  // rather than a joined reason trace, so a dead quota is not visibly worse.
+  return buildNarration({
+    recommendation: context.recommendation,
+    signals: context.signals,
+    wellnessScore: context.wellnessScore,
+    lang: language === "hi" ? "hi" : "en",
+  });
 }

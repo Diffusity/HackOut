@@ -29,7 +29,23 @@ export function resolveNextBestAction(input: {
 }): NextBestAction {
   const { recommendation, timing, model, wellnessScore } = input;
 
-  // 1. The wellness gate has already held a sale back — say so first.
+  // 1. If the model is the reason the gate closed, say that — otherwise the
+  // banner would quote a healthy rules score while withholding an offer, which
+  // reads as a contradiction rather than an early warning.
+  if (model?.escalatedByModel) {
+    const driver = model.contributions.find((c) => c.contribution > 0);
+    return {
+      source: "model",
+      title: "Early warning, before anything goes wrong",
+      detail:
+        `Nothing has gone wrong yet — no EMI has been missed. But this account matches the pattern of customers who ran into trouble within 90 days` +
+        `${driver ? `, driven mainly by ${driver.label}` : ""}, so we have paused offers and would rather check in than sell.`,
+      ctaLabel: "Talk to us",
+      protective: true,
+    };
+  }
+
+  // 2. The wellness rules held a sale back.
   if (recommendation.wellnessGateStatus === "suppressed") {
     return {
       source: "wellness",
@@ -38,20 +54,6 @@ export function resolveNextBestAction(input: {
         `Your recent transactions show financial pressure${typeof wellnessScore === "number" ? ` (wellness ${wellnessScore}/100)` : ""}, ` +
         `so the offer you would normally see has been paused. ${productName(recommendation.product)} is available instead, with no penalty.`,
       ctaLabel: "See support options",
-      protective: true,
-    };
-  }
-
-  // 2. The model spotted pressure the rules had not — an early warning.
-  if (model?.escalatedByModel) {
-    const driver = model.contributions.find((c) => c.contribution > 0);
-    return {
-      source: "model",
-      title: "Early warning, before anything goes wrong",
-      detail:
-        `No EMI has been missed yet, but the pattern in this account looks like customers who ran into trouble within 90 days` +
-        `${driver ? `, driven mainly by ${driver.label}` : ""}. We have paused offers and would rather check in.`,
-      ctaLabel: "Talk to us",
       protective: true,
     };
   }
