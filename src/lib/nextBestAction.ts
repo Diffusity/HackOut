@@ -46,13 +46,13 @@ export function resolveNextBestAction(input: {
   // banner would quote a healthy rules score while withholding an offer, which
   // reads as a contradiction rather than an early warning.
   if (model?.escalatedByModel) {
-    const driver = model.contributions.find((c) => c.contribution > 0);
+    const topFactor = model.contributions.find((c: any) => c.contribution > 0.5);
     return {
       source: "model",
       title: "Early warning, before anything goes wrong",
       detail:
         `Nothing has gone wrong yet — no EMI has been missed. But this account matches the pattern of customers who ran into trouble within 90 days` +
-        `${driver ? `, driven mainly by ${driver.label}` : ""}, so we have paused offers and would rather check in than sell.`,
+        `${topFactor ? `, driven mainly by ${topFactor.label}` : ""}, so we have paused offers and would rather check in than sell.`,
       ctaLabel: "Talk to us",
       protective: true,
     };

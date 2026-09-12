@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { RiskFactor, RiskPrediction } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { BrainCircuit, FlaskConical } from "lucide-react";
+import { BrainCircuit, FlaskConical, Search } from "lucide-react";
+import { RiskExplainabilityModal } from "./RiskExplainabilityModal";
 
 type RiskResponse = RiskPrediction & { toolName?: string; reasonTrace?: string[] };
 
 export function RiskGauge({ data }: { data: RiskResponse | null }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   if (!data) return null;
 
   const pct = Math.round(data.probability * 100);
@@ -28,18 +32,28 @@ export function RiskGauge({ data }: { data: RiskResponse | null }) {
   );
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <BrainCircuit className={`w-5 h-5 ${bandColor}`} />
-          <span className="flex items-center gap-2">
-            ML Risk Prediction
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-800 border border-white/10 rounded-full px-2 py-0.5">
-              <FlaskConical className="w-3 h-3" /> experimental
-            </span>
-          </span>
-        </CardTitle>
-      </CardHeader>
+    <>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BrainCircuit className={`w-5 h-5 ${bandColor}`} />
+              <span className="flex items-center gap-2">
+                ML Risk Prediction
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-800 border border-white/10 rounded-full px-2 py-0.5">
+                  <FlaskConical className="w-3 h-3" /> experimental
+                </span>
+              </span>
+            </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+              title="Explain Risk Model"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </CardTitle>
+        </CardHeader>
       <CardContent className="space-y-3">
         <div className="text-center">
           <div className={`text-4xl font-bold ${bandColor}`}>{pct}%</div>
@@ -89,5 +103,7 @@ export function RiskGauge({ data }: { data: RiskResponse | null }) {
         </div>
       </CardContent>
     </Card>
+    <RiskExplainabilityModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </>
   );
 }

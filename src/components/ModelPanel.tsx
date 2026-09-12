@@ -28,7 +28,7 @@ export function ModelPanel({ model }: { model: ModelVerdict | null | undefined }
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {model.contributions.map((c) => {
+        {model.contributions.map((c: any) => {
           const width = (Math.abs(c.contribution) / maxMagnitude) * 50;
           const raises = c.contribution >= 0;
           return (

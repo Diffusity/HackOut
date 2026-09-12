@@ -88,7 +88,7 @@ export function AuditLogPanel({ logs, chain }: { logs: AuditRecord[]; chain?: Ch
                     <Badge variant={log.consentVerified ? "outline" : "solid"}>
                       {log.consentVerified ? "Consent verified" : "No consent"}
                     </Badge>
-                    {log.dataAccessed.map((d) => (
+                    {log.dataAccessed.map((d: any) => (
                       <Badge key={d} variant="muted">
                         {d}
                       </Badge>
@@ -101,7 +101,7 @@ export function AuditLogPanel({ logs, chain }: { logs: AuditRecord[]; chain?: Ch
 
                   {log.reasonTrace.length > 0 && (
                     <ul className="space-y-1 text-fg-muted">
-                      {log.reasonTrace.map((t, i) => (
+                      {log.reasonTrace.map((t: any, i: any) => (
                         <li key={i} className="flex gap-2">
                           <span className="text-fg-subtle">—</span>
                           <span className="break-words">{t}</span>

@@ -24,7 +24,7 @@ for (const id of ["CUST_PRIYA", "CUST_RAMESH", "CUST_SUNITA"]) {
   const core = computeStressCore(signals);
   const segment = assignSegment(signals);
   console.log(`\n${id}: rules ${core.wellnessScore}/100, model ${(core.model.probability * 100).toFixed(1)}%, segment "${segment.name}", savings p${segment.savingsPercentile}`);
-  core.model.contributions.slice(0, 3).forEach((c) =>
+  core.model.contributions.slice(0, 3).forEach((c: any) =>
     console.log(`    ${c.label}: ${c.contribution > 0 ? "+" : ""}${c.contribution} (${c.direction})`)
   );
   check(`${id}: probability is a valid probability`, core.model.probability >= 0 && core.model.probability <= 1);

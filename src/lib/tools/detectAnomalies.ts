@@ -16,6 +16,8 @@ export function detectAnomalies(customerId: string): ToolResult<AnomalyReport> {
         overallRiskScore: 0,
         reasonTrace,
       },
+      reasonTrace,
+      timestamp: new Date(),
     };
   }
 
@@ -31,6 +33,8 @@ export function detectAnomalies(customerId: string): ToolResult<AnomalyReport> {
     return {
       toolName: "detectAnomalies",
       output: { customerId, anomalies, overallRiskScore: 0, reasonTrace },
+      reasonTrace,
+      timestamp: new Date(),
     };
   }
 
@@ -158,5 +162,7 @@ export function detectAnomalies(customerId: string): ToolResult<AnomalyReport> {
       overallRiskScore: riskScore,
       reasonTrace,
     },
+    reasonTrace,
+    timestamp: new Date(),
   };
 }

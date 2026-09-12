@@ -81,6 +81,9 @@ export interface AuditEntry {
   consentVerified: boolean;
   decision: string;
   reasonTrace: string[];
+  seq?: number;
+  hash?: string;
+  prevHash?: string;
 }
 
 export interface ToolResult<T = any> {
@@ -151,3 +154,6 @@ export interface AnomalyReport {
   overallRiskScore: number;
   reasonTrace: string[];
 }
+
+export type ModelVerdict = any;
+export type AuditRecord = AuditEntry;

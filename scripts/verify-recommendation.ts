@@ -25,7 +25,7 @@ async function main() {
     const logs = getAllAuditLogs().filter(log => log.customerId === id);
     logs.forEach(l => {
       console.log(`  [${l.action}] ${l.decision}`);
-      l.reasonTrace.forEach(t => console.log(`    - ${t}`));
+      l.reasonTrace.forEach((t: any) => console.log(`    - ${t}`));
     });
   }
 }

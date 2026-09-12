@@ -370,6 +370,7 @@ export class AgentOrchestrator {
       reasonTrace: riskRes.reasonTrace,
     });
 
+    const timingNarration = timingRes.output.trigger ? ` (Timing: ${timingRes.output.trigger})` : "";
     const narration = `Based on your transaction patterns, we recommend ${recRes.output.product}. ${recRes.reasonTrace.join(", ")}.${timingNarration}${riskNarration}`;
     recRes.output.plainLanguageExplanation = narration;
 

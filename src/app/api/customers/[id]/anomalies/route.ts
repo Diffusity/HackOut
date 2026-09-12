@@ -4,14 +4,15 @@ import { currentSnapshot, loadSnapshot } from "@/lib/db/repository";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   await loadSnapshot();
-  const customer = currentSnapshot().customers.find((c) => c.customerId === params.id);
+  const customer = currentSnapshot().customers.find((c) => c.customerId === id);
   if (!customer) {
     return NextResponse.json({ error: "Customer not found" }, { status: 404 });
   }
 
-  const res = detectAnomalies(params.id);
+  const res = detectAnomalies(id);
   return NextResponse.json(res.output);
 }

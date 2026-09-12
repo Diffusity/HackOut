@@ -21,6 +21,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Badge } from "./ui/badge";
 import {
   AuditRecord,
+  AuditEntry,
   Customer,
   ModelVerdict,
   Recommendation,
@@ -29,7 +30,7 @@ import {
   TimingSignals,
 } from "@/lib/types";
 import { NextBestAction } from "@/lib/nextBestAction";
-import { Loader2, ShieldOff } from "lucide-react";
+import { Loader2, ShieldOff, AlertCircle, X } from "lucide-react";
 
 const PERSONAS = [
   { id: "CUST_PRIYA", label: "Priya", note: "Salaried saver" },
@@ -65,6 +66,7 @@ export function Dashboard() {
   const [riskData, setRiskData] = useState<any>(null);
   const [consentState, setConsentState] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+  const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -86,38 +88,24 @@ export function Dashboard() {
       setPayload(null);
 
       try {
-        const [profRes, sigRes, txnRes, wellRes, consRes] = await Promise.all([
+        const [profRes, sigRes, txnRes, wellRes, consRes, riskRes] = await Promise.all([
           fetch(`/api/customers/${customerId}${query}`),
           fetch(`/api/customers/${customerId}/signals${query}`),
           fetch(`/api/customers/${customerId}/transactions/monthly`),
           fetch(`/api/customers/${customerId}/wellness${query}`),
           fetch(`/api/customers/${customerId}/consent`),
+          fetch(`/api/customers/${customerId}/risk`),
         ]);
 
         if (cancelled) return;
         if (profRes.ok) setCustomer(await profRes.json());
-
-        // Fetch signals
-        const sigRes = await fetch(`/api/customers/${customerId}/signals`);
         if (sigRes.ok) {
           const sigJson = await sigRes.json();
           setSignals(sigJson.signals);
         }
-
-        // Fetch monthly txns
-        const txnsRes = await fetch(`/api/customers/${customerId}/transactions/monthly`);
-        if (txnsRes.ok) setMonthlyTxns(await txnsRes.json());
-
-        // Fetch wellness
-        const wellRes = await fetch(`/api/customers/${customerId}/wellness`);
+        if (txnRes.ok) setMonthlyTxns(await txnRes.json());
         if (wellRes.ok) setWellnessData(await wellRes.json());
-
-        // Fetch ML risk prediction (RiskNet, F26)
-        const riskRes = await fetch(`/api/customers/${customerId}/risk`);
         if (riskRes.ok) setRiskData(await riskRes.json());
-        
-        // Fetch consent
-        const consRes = await fetch(`/api/customers/${customerId}/consent`);
         if (consRes.ok) setConsentState(await consRes.json());
       } catch (e) {
         console.error(e);
@@ -143,9 +131,32 @@ export function Dashboard() {
 
   const hasConsent = consentState?.transactions !== false;
   const nba = payload?.nextBestAction;
+  
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+
+  useEffect(() => {
+    if (payload?.anomalies?.overallRiskScore > 80) {
+      setToastMessage(`High fraud risk detected (${payload.anomalies.overallRiskScore}/100)`);
+      setShowToast(true);
+      const timer = setTimeout(() => setShowToast(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [payload?.anomalies]);
 
   return (
     <div className="min-h-screen bg-bg">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-20 right-6 z-50 animate-fade-up rounded-lg border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger shadow-lg flex items-center gap-2 backdrop-blur-md">
+          <AlertCircle className="h-4 w-4" />
+          <span className="font-medium">{toastMessage}</span>
+          <button onClick={() => setShowToast(false)} className="ml-4 hover:opacity-70">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-8">
           <div className="flex items-baseline gap-3">
@@ -239,23 +250,12 @@ export function Dashboard() {
               <ProfileCard customer={customer} segment={payload?.segment} />
               {hasConsent ? (
                 <SignalsCard signals={signals} />
-              </div>
-              <WellnessGauge data={wellnessData} />
-              <RiskGauge data={riskData} />
-              <AnomalyCard data={payload?.anomalies ?? null} />
-            </div>
-
-            {/* Main Column: Chart & Recommendation (Span 6) */}
-            <div className="lg:col-span-6 space-y-6">
-              {!hasTransactionConsent ? (
-                 <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-rose-200">
-                   <span className="font-semibold block mb-2 text-lg">🔒 Consent Required</span>
-                   We cannot generate Agentic recommendations without access to your transaction history. Please enable access in the Privacy Controls.
-                 </div>
               ) : (
                 <RestrictedNotice text="Signals are hidden because transaction access is switched off." />
               )}
-              <WellnessGauge data={wellness} />
+              <WellnessGauge data={wellnessData} />
+              <RiskGauge data={riskData} />
+              <AnomalyCard data={payload?.anomalies ?? null} />
             </div>
 
             <div className="space-y-5 lg:col-span-6">
