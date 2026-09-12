@@ -2,6 +2,8 @@ import { geminiFlash } from "../gemini";
 import { checkConsent } from "../tools/checkConsent";
 import { getCustomerSignals } from "../tools/getCustomerSignals";
 import { recommendProduct } from "../tools/recommendProduct";
+import { detectStressSignals } from "../tools/detectStressSignals";
+import { applyWellnessGate } from "../tools/wellnessGate";
 import { logAuditEntry } from "../audit";
 import { Recommendation, ToolResult } from "../types";
 import { FunctionDeclaration, SchemaType } from "@google/generative-ai";
@@ -40,13 +42,22 @@ const recommendProductDeclaration: FunctionDeclaration = {
     },
     required: ["customerId"],
   },
-}; // Note: in real usage we pass signals to recommendProduct, but to simplify the LLM interface, we can have a wrapper.
+};
 
 // Wrapper for the LLM to call
-function recommendProductWrapper(customerId: string): ToolResult<Recommendation> {
+async function recommendProductWrapper(customerId: string): Promise<ToolResult<Recommendation>> {
   const signalsResult = getCustomerSignals(customerId);
   const recResult = recommendProduct(signalsResult.output);
-  return recResult;
+  
+  // Apply Wellness Gate
+  const stressResult = await detectStressSignals(customerId);
+  const gatedRec = applyWellnessGate(stressResult.output, recResult.output);
+  
+  return {
+    ...recResult,
+    output: gatedRec,
+    reasonTrace: gatedRec.reasonTrace // Updates if suppressed
+  };
 }
 
 export class AgentOrchestrator {
@@ -71,6 +82,7 @@ export class AgentOrchestrator {
       When you get the recommendation result, look at the reasonTrace. 
       Your final response must be a plain, empathetic, human-readable explanation of why this product is recommended, using ONLY the facts from the reasonTrace.
       Do not invent reasons. Keep banking terminology simple.
+      If the wellnessGateStatus is "suppressed", explicitly mention that you are offering support instead of credit because of financial stress.
     `;
 
     const model = geminiFlash;
@@ -117,7 +129,7 @@ export class AgentOrchestrator {
           if (!consentGranted) {
             functionResponse = { error: "Consent not granted. Cannot process recommendation." };
           } else {
-            const res = recommendProductWrapper((call.args as any).customerId as string);
+            const res = await recommendProductWrapper((call.args as any).customerId as string);
             finalRecommendation = res;
             functionResponse = res.output;
             
@@ -153,7 +165,6 @@ export class AgentOrchestrator {
     }
 
     if (!finalRecommendation) {
-      // Fallback if LLM failed to call the tools properly
       return this.runFallbackPipeline();
     }
 
@@ -165,7 +176,7 @@ export class AgentOrchestrator {
     };
   }
 
-  private runFallbackPipeline() {
+  private async runFallbackPipeline() {
     const consentRes = checkConsent(this.customerId);
     logAuditEntry({
       timestamp: new Date(),
@@ -197,7 +208,7 @@ export class AgentOrchestrator {
       };
     }
 
-    const recRes = recommendProductWrapper(this.customerId);
+    const recRes = await recommendProductWrapper(this.customerId);
     
     logAuditEntry({
       timestamp: new Date(),

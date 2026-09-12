@@ -1,24 +1,21 @@
-import { Signals } from "@/lib/types";
+import { StressAlert } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { HeartPulse } from "lucide-react";
 
-export function WellnessGauge({ signals }: { signals: Signals | null }) {
-  if (!signals) return null;
+export function WellnessGauge({ data }: { data: StressAlert | null }) {
+  if (!data) return null;
 
-  // Stub score calculation based on emiMissCount90d for the demo
-  let score = 85; // Default healthy
-  if (signals.emiMissCount90d === 1) score = 60;
-  if (signals.emiMissCount90d >= 2) score = 35; // Sunita's demo score
+  const score = data.wellnessScore;
 
   let status = "Healthy";
   let color = "text-emerald-400";
   let bgColor = "bg-emerald-400";
   
-  if (score < 70 && score >= 40) {
+  if (score < 70 && score >= 50) {
     status = "Warning";
     color = "text-amber-400";
     bgColor = "bg-amber-400";
-  } else if (score < 40) {
+  } else if (score < 50) {
     status = "At Risk";
     color = "text-rose-400";
     bgColor = "bg-rose-400";
@@ -32,7 +29,7 @@ export function WellnessGauge({ signals }: { signals: Signals | null }) {
           Financial Wellness
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center py-6">
+      <CardContent className="flex flex-col items-center justify-center py-6 text-center">
         <div className="relative w-32 h-16 overflow-hidden">
           {/* Semi-circle gauge background */}
           <div className="absolute top-0 left-0 w-32 h-32 rounded-full border-[12px] border-gray-800 border-b-transparent border-r-transparent transform -rotate-45"></div>
@@ -45,10 +42,15 @@ export function WellnessGauge({ signals }: { signals: Signals | null }) {
             }}
           ></div>
         </div>
-        <div className="mt-2 text-center">
+        <div className="mt-2">
           <div className={`text-4xl font-bold ${color}`}>{score}</div>
           <div className="text-xs uppercase tracking-wider text-gray-400 mt-1">{status}</div>
         </div>
+        {data.empatheticMessage && (
+          <div className="mt-4 text-xs text-gray-300 bg-gray-900/50 p-3 rounded-lg border border-white/5 italic">
+            "{data.empatheticMessage}"
+          </div>
+        )}
       </CardContent>
     </Card>
   );

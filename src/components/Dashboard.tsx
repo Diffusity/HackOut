@@ -17,6 +17,7 @@ export function Dashboard() {
   const [signals, setSignals] = useState<Signals | null>(null);
   const [monthlyTxns, setMonthlyTxns] = useState<any[]>([]);
   const [recData, setRecData] = useState<{ recommendation: Recommendation, narration: string } | null>(null);
+  const [wellnessData, setWellnessData] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(true);
@@ -43,6 +44,10 @@ export function Dashboard() {
         // Fetch monthly txns
         const txnsRes = await fetch(`/api/customers/${customerId}/transactions/monthly`);
         if (txnsRes.ok) setMonthlyTxns(await txnsRes.json());
+
+        // Fetch wellness
+        const wellRes = await fetch(`/api/customers/${customerId}/wellness`);
+        if (wellRes.ok) setWellnessData(await wellRes.json());
       } catch (e) {
         console.error(e);
       } finally {
@@ -107,7 +112,7 @@ export function Dashboard() {
             <div className="lg:col-span-3 space-y-6">
               <ProfileCard customer={customer} />
               <SignalsCard signals={signals} />
-              <WellnessGauge signals={signals} />
+              <WellnessGauge data={wellnessData} />
             </div>
 
             {/* Main Column: Chart & Recommendation (Span 6) */}

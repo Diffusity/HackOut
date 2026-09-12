@@ -44,6 +44,13 @@ export function RecommendationCard({ data, loading }: { data?: { recommendation:
       </CardHeader>
       
       <CardContent className="space-y-4">
+        {recommendation.wellnessGateStatus === "suppressed" && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-sm text-rose-200">
+            <span className="font-semibold block mb-1">🛡️ Wellness Gate Active</span>
+            A credit product was suppressed due to financial stress indicators. Displaying a support recommendation instead.
+          </div>
+        )}
+
         {/* The Product */}
         <div className="bg-gray-900/50 rounded-lg p-4 border border-white/5">
           <div className="text-sm text-gray-400 mb-1">Recommended Product</div>
