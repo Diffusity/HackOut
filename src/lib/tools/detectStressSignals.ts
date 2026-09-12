@@ -55,8 +55,8 @@ export function computeStressCore(signals: Signals): {
   return { wellnessScore: score, isAtRisk, reasons: reasonTrace, recommendedIntervention };
 }
 
-export async function detectStressSignals(customerId: string): Promise<ToolResult<StressAlert>> {
-  const signalsResult = getCustomerSignals(customerId);
+export async function detectStressSignals(customerId: string, now?: Date): Promise<ToolResult<StressAlert>> {
+  const signalsResult = getCustomerSignals(customerId, now);
   const signals = signalsResult.output;
 
   const core = computeStressCore(signals);

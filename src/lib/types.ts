@@ -87,3 +87,10 @@ export interface ToolResult<T = any> {
   confidence?: number;
   timestamp: Date;
 }
+
+/** An audit entry once it has been sealed into the tamper-evident chain (ADR-025). */
+export interface AuditRecord extends AuditEntry {
+  seq: number;
+  prevHash: string;
+  hash: string;
+}

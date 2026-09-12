@@ -1,7 +1,12 @@
 import { getCustomerById, getTransactionsForCustomer } from "../data";
 import { Signals, ToolResult, Transaction } from "../types";
 
-export function getCustomerSignals(customerId: string): ToolResult<Signals> {
+/**
+ * @param now Optional "as of" date (Time Machine, ADR-023). When supplied it
+ * replaces the last-transaction date as the reference point for every rolling
+ * window, so advancing the demo clock genuinely changes the signals.
+ */
+export function getCustomerSignals(customerId: string, now?: Date): ToolResult<Signals> {
   const customer = getCustomerById(customerId);
   const txns = getTransactionsForCustomer(customerId);
 
@@ -35,7 +40,10 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
   }
 
   const startDate = new Date(txns[0].timestamp);
-  const endDate = new Date(txns[txns.length - 1].timestamp);
+  const lastTxnDate = new Date(txns[txns.length - 1].timestamp);
+  // Reference point for all rolling windows. Defaults to the last transaction
+  // so existing behaviour/tests are unchanged when no clock is injected.
+  const endDate = now && now.getTime() > lastTxnDate.getTime() ? now : lastTxnDate;
   const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()) + 1;
   const totalMonths = Math.max(1, monthsDiff);
 

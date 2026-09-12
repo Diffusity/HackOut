@@ -50,7 +50,9 @@ export async function sendWithRetry(chat: any, message: any, maxAttempts = 3): P
       const status = e?.status ?? 0;
       const transient = status === 429 || status === 500 || status === 503;
       if (!transient || attempt === maxAttempts) throw e;
-      const backoffMs = attempt * 15000; // 15s, 30s — fits a 5 req/min free-tier window
+      // Backoff must stay well inside the Vercel function timeout (ADR-022):
+      // 15s/30s sleeps got the lambda killed before the retry could land.
+      const backoffMs = attempt * 2000; // 2s, 4s
       console.log(`[gemini] transient error ${status} (attempt ${attempt}/${maxAttempts}), retrying in ${backoffMs}ms...`);
       await new Promise((r) => setTimeout(r, backoffMs));
     }

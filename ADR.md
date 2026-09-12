@@ -947,3 +947,28 @@ The vernacular chat (ADR-002/ADR-006) originally had **no access** to the recomm
 
 
 
+
+## ADR-022: Experimental ML Risk Prediction Model (Proposed)
+
+**Status**: ⏳ Proposed
+
+**Date**: 2026-09-12
+
+### Context
+
+We want to demonstrate advanced machine‑learning capability while keeping the core decision path deterministic. A lightweight gradient‑boosted‑tree model trained on the synthetic dataset can predict a binary *financial‑stress* flag.
+
+### Decision
+
+Add an optional ML‑augmented risk signal that is **merged with** the deterministic `detectStressSignals` output (logical OR). The final recommendation still depends on deterministic code, so explainability is preserved.
+
+### Rationale
+- **Innovation signal** – Shows the team can prototype an ML model in a short hackathon.
+- **Hybrid approach** – Reinforces the narrative that we combine deterministic rules with data‑driven models.
+- **Explainability** – Feature importance can be displayed in the UI; the model is never the sole decision maker.
+
+### Consequences
+- (+) Judges see a genuine ML pipeline (data prep → train → inference).
+- (–) Additional 3‑4 h effort; must be clearly marked as experimental and not used for compliance decisions.
+
+---
