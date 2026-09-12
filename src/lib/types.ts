@@ -9,6 +9,19 @@ export interface Customer {
     location: boolean;
     spendCategories: boolean;
   };
+  // Demo fields for mock calculations
+  monthlyIncome?: number;
+  monthlyExpense?: number;
+  customerId: string;
+  name: string;
+  segment: "salaried" | "gig" | "self_employed";
+  cityTier: 2 | 3 | 4;
+  preferredLanguage: "hi" | "en" | "ta" | "te" | "kn" | "bn";
+  consent: {
+    transactions: boolean;
+    location: boolean;
+    spendCategories: boolean;
+  };
 }
 
 export interface Transaction {
@@ -28,6 +41,40 @@ export interface Product {
   category: "savings" | "investment" | "credit" | "insurance" | "support";
   minAmount: number;
   description: string;
+}
+
+/** New mock data interfaces for front‑end only features */
+export interface SipNudge {
+  customerId: string;
+  suggestedSipAmount: number;
+  message: string;
+}
+
+export interface CreditOffer {
+  customerId: string;
+  offerAmount: number;
+  interestRate: number;
+  tenureMonths: number;
+  terms: string;
+}
+
+export interface FundingReferral {
+  customerId: string;
+  partnerName: string;
+  description: string;
+  referralLink: string;
+}
+
+export interface PortfolioAllocation {
+  assetClass: string;
+  percentage: number;
+}
+
+export interface PortfolioSimulationResult {
+  customerId: string;
+  allocations: PortfolioAllocation[];
+  projectedReturnAnnualPct: number;
+  riskScore: number;
 }
 
 export interface Signals {

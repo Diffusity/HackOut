@@ -19,6 +19,8 @@ import { TimeMachine } from "./TimeMachine";
 import { DecisionReceipt } from "./DecisionReceipt";
 import { ThemeToggle } from "./ThemeToggle";
 import { Badge } from "./ui/badge";
+import { SIPNudgeBanner } from "./SIPNudgeBanner";
+import { CreditOfferModal } from "./CreditOfferModal";
 import {
   AuditRecord,
   AuditEntry,
@@ -156,6 +158,8 @@ export function Dashboard() {
           </button>
         </div>
       )}
+      {/* New SIP Nudge Banner */}
+      <SIPNudgeBanner />
 
       <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-8">
