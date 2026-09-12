@@ -7,6 +7,7 @@ import { applyWellnessGate } from "../tools/wellnessGate";
 import { logAuditEntry } from "../audit";
 import { Recommendation, ToolResult } from "../types";
 import { FunctionDeclaration, SchemaType } from "@google/generative-ai";
+import { checkOutputGuardrails } from "../guardrails";
 
 const checkConsentDeclaration: FunctionDeclaration = {
   name: "checkConsent",
@@ -159,6 +160,21 @@ export class AgentOrchestrator {
 
       finalNarration = response.response.text();
 
+      if (finalRecommendation) {
+        const outputGuard = checkOutputGuardrails(finalNarration, finalRecommendation);
+        if (!outputGuard.safe) {
+          logAuditEntry({
+            timestamp: new Date(),
+            customerId: this.customerId,
+            action: "guardrail_blocked",
+            dataAccessed: [],
+            consentVerified: true,
+            decision: `Output guardrail flagged narration: ${outputGuard.reason}`,
+            reasonTrace: [`Flagged content: ${outputGuard.flaggedContent}`],
+          });
+          finalNarration = `(Guardrail Alert: Original explanation hidden due to ${outputGuard.reason}). Based on your profile, we recommend ${finalRecommendation.output.product}.`;
+        }
+      }
     } catch (e: any) {
       console.error("Orchestrator error:", e);
       return this.runFallbackPipeline();

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { geminiPro } from "@/lib/gemini";
 import { getCustomerById } from "@/lib/data";
+import { checkInputGuardrails } from "@/lib/guardrails";
+import { logAuditEntry } from "@/lib/audit";
 
 export async function POST(
   request: NextRequest,
@@ -15,6 +17,23 @@ export async function POST(
     const customer = getCustomerById(customerId);
     if (!customer) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    }
+
+    const inputGuard = checkInputGuardrails(message);
+    if (!inputGuard.safe) {
+      logAuditEntry({
+        timestamp: new Date(),
+        customerId,
+        action: "guardrail_blocked",
+        dataAccessed: [],
+        consentVerified: false,
+        decision: `Blocked prompt injection: ${inputGuard.reason}`,
+        reasonTrace: [`Pattern matched: ${inputGuard.flaggedContent}`],
+      });
+      return NextResponse.json({ 
+        reply: "I'm sorry, I can only help with banking and financial queries. Please rephrase your request.",
+        language
+      });
     }
 
     if (!process.env.GEMINI_API_KEY) {
