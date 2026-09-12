@@ -450,23 +450,38 @@
 
 ## 15. Status Tracking
 
+> **Phase 3 (Sep 12, 2026)** superseded parts of this plan. The table below is the current state; features not in the original F12-F25 list are recorded in ADR-022 through ADR-031.
+
 | # | Feature | Status | Evidence |
 |---|---------|--------|----------|
-| 11 | LLM Guardrail Suite | ✅ DONE (06b92cd; norm fix a6ce407) | live chat: block + verified pass |
-| 13 | Timing Engine | ✅ DONE (cdb34b2, d25ef65) | 21/21 unit + verify-timing (3 personas) + build green |
-| 15 | Fraud Detection | ⬜ pending approval | — |
-| 14 | Loan Journey | ⬜ pending approval | — |
-| 12 | Eval Suite | ⬜ pending approval | — |
-| 19 | Next-Best-Action | ⬜ pending approval | — |
-| 18 | PII Redaction | ⬜ pending approval | — |
-| 17 | Behavioral Segmentation | ⬜ pending approval | — |
-| 16 | Compliance Page | ⬜ pending approval | — |
-| 20 | Caching & Hardening | ⬜ pending approval | — |
-| 21 | Vercel Deployment | ⬜ pending approval | — |
-| 22 | Multi-Language | ⬜ pending approval | — |
-| 24 | Architecture Page | ⬜ pending approval | — |
-| 23 | Observability | ⬜ pending approval | — |
-| 25 | Fairness Audit | ⬜ pending approval | — |
+| 11 | LLM Guardrail Suite | DONE | live chat: block + verified pass |
+| 13 | Timing Engine | DONE | 21/21 unit + verify-timing, now user-steerable (ADR-023) |
+| 12 | Eval Suite | DONE | `npm run eval` — 21 safety invariants, no LLM calls |
+| 16 | Compliance Page | DONE | `/compliance` |
+| 17 | Behavioural Segmentation | DONE | k-means, shown on the profile card (ADR-027) |
+| 18 | PII Redaction | DONE (pre-existing) | output validator screens Aadhaar/PAN/phone |
+| 19 | Next-Best-Action | DONE | deterministic priority resolver (ADR-029) |
+| 21 | Vercel Deployment | DONE | data imports + cookie consent + maxDuration (ADR-022) |
+| 22 | Multi-Language | DONE | narration, SMS and IVR in en + hi (ADR-024) |
+| 24 | Architecture Visualisation | PARTIAL | pipeline documented in README; no diagram page |
+| 25 | Fairness Audit | DONE | `/fairness`, four-fifths rule, publishes a failing result (ADR-030) |
+| 14 | Guided Loan Journey | NOT BUILT | deprioritised for the ML layer and explainability work |
+| 15 | Fraud/Anomaly Detection | NOT BUILT | the distress model covers early warning; transaction fraud is a separate model we did not have time to do honestly |
+| 20 | Response Caching | SUPERSEDED | deterministic narration removed the quota dependency entirely (ADR-024) |
+| 23 | Observability Dashboard | SUPERSEDED | the hash-chained audit ledger serves this purpose (ADR-025) |
+
+### Added in Phase 3 (not in the original plan)
+
+| Feature | ADR | Evidence |
+|---|---|---|
+| Trained distress model + k-means segments | 027 | `npm run train`, `/model-card`, verify-ml |
+| Counterfactual / adverse-action explanations | 026 | verify-counterfactuals, 19 assertions |
+| Time Machine (user-steerable clock) | 023 | `?now=` on every route |
+| Hash-chained audit ledger + decision receipt | 025 | eval suite asserts tamper detection |
+| Topic scope guard | 028 | verify-guardrails, 29 assertions |
+| Bharat Mode (SMS + IVR rendering) | 024 | eval asserts 160-char limit for every persona |
+| Per-scope consent degradation | 031 | toggling a scope changes the decision |
+| Suppression ledger | 030 | `/fairness` |
 
 ## 16. Standing Decisions (record once, apply everywhere)
 
