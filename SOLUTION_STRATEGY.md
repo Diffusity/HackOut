@@ -621,3 +621,119 @@ Before your final rehearsal, walk this table out loud and make sure you can poin
 ---
 
 > **Remember**: Hackathons are won on **demo quality** and **narrative clarity**, not code completeness. A polished demo of 5 features beats a buggy demo of 15 features every time. Focus on the story, make it emotional, make it work flawlessly. Before your final rehearsal, walk the judging rubric table and make sure every row has a live, demoable answer.
+
+---
+
+## 19. Phase 2 Features — Winning Edge (Post P0+P1 Completion)
+
+> Features 1-10 (P0 Spine + P1 Differentiators) are complete. The following features are classified by priority based on their **direct mapping to problem statement text** and **what competing teams will miss**.
+
+### P1-Critical — Problem Statement Required (Most Teams Will Miss)
+
+These features address **explicit words in the problem statement** that judges will look for.
+
+| Order | Feature | Time | Problem Statement Text | Impact |
+|-------|---------|------|----------------------|--------|
+| **11** | **LLM Guardrail Suite** | 1.5h | "ethical safeguards" (deliverable) | 🔴 CRITICAL — Prompt injection shield + output schema validator + financial accuracy guard. 99% of teams have zero LLM safety. |
+| **12** | **Agentic Eval Suite** | 1.5h | "technical feasibility" (judging) | 🔴 CRITICAL — 12+ automated assertions verifying the entire pipeline. "Let me run our test suite live" = mic drop. |
+| **13** | **Contextual Timing Engine** | 1.5h | "at the **right moment**" (Challenge 1) | 🔴 CRITICAL — Adds "when" intelligence to recommendations. Most teams only answer "what." |
+| **14** | **Guided Loan Journey Flow** | 2h | "**loan journey**" (deliverable), "loan application, **KYC**" (Challenge 2) | 🔴 CRITICAL — Multi-step loan application via chatbot with progress tracking. Literally a named deliverable. |
+| **15** | **Fraud/Anomaly Detection** | 1.5h | "**fraud**", "unusual transaction patterns", "sudden **behavior change**" (Challenge 3) | 🔴 CRITICAL — We address stress but NOT fraud. The problem explicitly says both. |
+
+### P2 — High Impact Quick Wins
+
+| Order | Feature | Time | Why Essential | Impact |
+|-------|---------|------|--------------|--------|
+| **16** | **RBI Compliance & Data Localization Page** | 30m | "**RBI data localization norms**" (deliverable) | 🟠 HIGH — A `/compliance` page in the app. Most teams put this on a slide. |
+| **17** | **Behavioral Segmentation Display** | 45m | "**behavioral segmentation**" (deliverable) | 🟠 HIGH — Named behavioral segments from transaction patterns. Explicitly in deliverables. |
+| **18** | **PII Redaction Layer** | 45m | "data **privacy** and consent" (deliverable) | 🟠 HIGH — Defense-in-depth: LLM never sees raw Aadhaar/PAN even with consent granted. |
+| **19** | **Proactive Next-Best-Action System** | 1h | "**proactively** recommend" (Challenge 1) | 🟠 HIGH — Action banner at top of dashboard. Transforms passive dashboard into proactive assistant. |
+| **20** | **Response Caching & Demo Hardening** | 1h | Demo reliability | 🟠 HIGH — Pre-warm caches for personas. Guarantees sub-second load + demo never fails. |
+| **21** | **Vercel Deployment** | 1h | "Vercel free tier" (team constraints) | 🟠 HIGH — Live URL >>> localhost. Cached fallback for offline demo. |
+| **22** | **Multi-Language Beyond Hindi** | 30m | "Hindi, **Tamil, Telugu**, etc." (Challenge 2) | 🟡 MEDIUM — Trivial to add (Gemini supports natively). Shows Bharat-wide thinking. |
+
+### P3 — Polish & Proof Points
+
+| Order | Feature | Time | Why Useful | Impact |
+|-------|---------|------|-----------|--------|
+| **23** | **Observability & Tracing Dashboard** | 1h | Shows production engineering maturity | 🟡 MEDIUM — `/admin/traces` with LLM call logs, latency, token usage. |
+| **24** | **Architecture Visualization Page** | 45m | Deliverable: "architecture/flow diagram" | 🟡 MEDIUM — Interactive Mermaid diagram IN the app. |
+| **25** | **Recommendation Fairness Audit** | 45m | "algorithmic **bias**" (deliverable) | 🟡 MEDIUM — Post-hoc bias check. Generates a fairness report. |
+
+---
+
+## 20. Phase 2 Tool Specifications
+
+### Tool 6: ⏰ `computeTimingSignals(customerId)` — Contextual Timing Engine
+**Type**: Deterministic TypeScript
+**Role**: Computes the optimal moment to surface a recommendation.
+
+**Rules**:
+- Salary just credited (within 48h) → Recommend savings products (momentum)
+- Festival season approaching (Diwali, Eid, Pongal) → Short-term savings
+- EMI due in 3 days + low balance → Proactive alert (stress prevention)
+- 3+ months of stable savings → Investment upgrade
+- Recent large expense category shift → Financial check-in
+
+**Output**:
+```typescript
+{
+  trigger: "salary_credited_recently",
+  urgency: "now" | "soon" | "scheduled",
+  reason: "Salary of ₹35,000 credited 2 days ago. Savings momentum is high."
+}
+```
+
+### Tool 7: 🔍 `detectAnomalies(customerId)` — Fraud/Anomaly Detection
+**Type**: Deterministic rule + statistical engine
+**Role**: Detects unusual transaction patterns indicative of fraud or account takeover.
+
+**5 Detection Rules**:
+1. **Unusual Merchant**: Transaction to never-seen merchant + amount > 2× average
+2. **Sudden Large Withdrawal**: ATM > 50% of monthly income in single txn
+3. **Frequency Spike**: >3× normal daily transaction count
+4. **Category Shift**: Spend distribution changed >40% month-over-month
+5. **Velocity Check**: Multiple high-value transactions within 1 hour
+
+**Output**:
+```typescript
+{
+  anomalies: [{ type, severity, description, transaction }],
+  overallRiskScore: number  // 0-100
+}
+```
+
+### Tool 8: 🛡️ Guardrail Pipeline
+**Type**: Deterministic validation layer
+**Position**: Wraps ALL LLM calls.
+
+**Three Guards**:
+1. **Prompt Injection Shield**: Regex + keyword detection for injection patterns
+2. **Output Schema Validator**: Validates LLM output conforms to expected schemas
+3. **Financial Accuracy Guard**: Ensures LLM narrations don't contain hallucinated financial data (interest rates, EMI amounts) not from tool output
+
+---
+
+## 21. Recommended Parallelized Implementation Schedule
+
+| Time Block | Member 1 | Member 2 | Member 3 |
+|-----------|----------|----------|----------|
+| **Hour 1** | Feature 11: Guardrail Suite | Feature 12: Eval Suite | Feature 13: Timing Engine |
+| **Hour 2** | Feature 14: Loan Journey (start) | Feature 15: Fraud Detection | Feature 16: RBI Compliance Page |
+| **Hour 3** | Feature 14: Loan Journey (finish) | Feature 17: Behavioral Segmentation | Feature 18: PII Redaction |
+| **Hour 4** | Feature 19: Next-Best-Action | Feature 20: Response Caching | Feature 21: Vercel Deployment |
+| **Hour 5** | Feature 22: Multi-Language | Feature 23: Observability | Feature 24: Architecture Page |
+| **Hour 6** | Feature 25: Fairness Audit | Integration testing | Demo rehearsal |
+
+---
+
+## 22. Updated Self-Check Against Judging Rubric (Phase 2)
+
+| Judging Criterion | Phase 1 Features | Phase 2 Additions | Gap Closed? |
+|---|---|---|---|
+| Innovation & technical feasibility | Agentic orchestrator + tool-calling | Guardrails, Eval Suite, Timing Engine | ✅ Fully covered |
+| Depth of personalization vs. genuine benefit | Wellness Gate + Reason Traces | Timing ("right moment"), Next-Best-Action, Behavioral Segmentation | ✅ "What + When + Why" trifecta |
+| Explainability & RBI/regulatory compliance | Reason Traces + Consent Ledger | RBI Compliance Page, Fairness Audit, PII Redaction | ✅ Compliance at every layer |
+| Usability for vernacular-first users | Vernacular Chat + Voice | Multi-Language (Tamil, Telugu), Guided Loan Journey | ✅ Beyond Hindi, beyond chat |
+| Scalability & social/financial impact | Architecture design | Observability, Response Caching, Vercel Deployment | ✅ Production-ready signals |
+

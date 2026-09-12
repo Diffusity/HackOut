@@ -750,5 +750,157 @@ Challenge point 3 asks for detection of financial stress/fraud signals. No label
 | **013** | **Structured reason traces everywhere** | **Explainability (foundational)** |
 | **014** | **First-class Consent Ledger** | **Compliance readiness** |
 | **015** | **Rule-based stress detection, not ML** | **Explainability, honest design** |
+| **016** | **LLM Guardrail Suite (prompt injection + output validation)** | **Ethical safeguards, compliance** |
+| **017** | **Deterministic fraud/anomaly detection** | **Challenge 3 completeness (fraud + stress)** |
+| **018** | **Contextual timing engine ("right moment")** | **Personalization depth** |
+| **019** | **PII redaction before LLM processing** | **Privacy-by-design, DPDP Act** |
+| **020** | **Automated eval suite for agentic pipeline** | **Technical feasibility, reliability** |
 
-> **For any coding agent reading this ADR**: These decisions are FINAL for the hackathon. Do not introduce alternative technologies, frameworks, or approaches unless explicitly approved by the team. When implementing, follow the implementation notes in each ADR closely. The goal is a working, polished demo in 36 hours — not a production-grade system. ADRs 011-015 are the **strategic differentiators** — implement them carefully, they are what win the hackathon.
+> **For any coding agent reading this ADR**: These decisions are FINAL for the hackathon. Do not introduce alternative technologies, frameworks, or approaches unless explicitly approved by the team. When implementing, follow the implementation notes in each ADR closely. The goal is a working, polished demo in 36 hours — not a production-grade system. ADRs 011-015 are the **strategic differentiators** — implement them carefully, they are what win the hackathon. ADRs 016-020 are the **winning edge** — features that directly address problem statement gaps most teams will miss.
+
+---
+
+## ADR-016: LLM Guardrail Suite
+
+**Status**: ✅ Accepted
+**Date**: 2026-09-12
+
+### Context
+
+Our system accepts free-text user input (chatbot) and uses LLM-generated narrations in financial contexts. Without guardrails, the system is vulnerable to: prompt injection attacks, LLM hallucination of financial data (interest rates, EMI amounts), and output schema violations.
+
+### Decision
+
+**Implement a three-layer guardrail pipeline** that wraps ALL LLM interactions:
+
+1. **Prompt Injection Shield**: Regex + keyword detection for common injection patterns (`ignore previous instructions`, `system prompt`, SQL injection, etc.). Applied BEFORE every LLM call.
+2. **Output Schema Validator**: Validates that LLM outputs conform to expected types (product must exist in catalog, confidence 0-1, etc.).
+3. **Financial Accuracy Guard**: Pattern-matches LLM narrations for specific financial figures (₹ amounts, % rates, EMI counts) and flags any that don't originate from deterministic tool output.
+
+### Rationale
+
+1. **Ethical safeguards** is an explicit deliverable in the problem statement.
+2. "What stops the LLM from hallucinating a wrong interest rate?" is a devastating judge question with no answer if guardrails don't exist.
+3. Demonstrates production AI safety thinking — extremely rare in hackathons.
+
+### Consequences
+
+- (+) Demoable: type an injection live → show it blocked
+- (+) Addresses "ethical safeguards" deliverable at the LLM layer
+- (–) Adds ~50ms latency per LLM call (negligible)
+
+### Implementation Notes
+
+- Create `src/lib/guardrails/promptInjection.ts`, `outputValidator.ts`, `financialGuard.ts`
+- Wrap via `src/lib/guardrails/index.ts` pipeline
+- Every guardrail check logged to audit trail
+
+---
+
+## ADR-017: Deterministic Fraud/Anomaly Detection
+
+**Status**: ✅ Accepted
+**Date**: 2026-09-12
+
+### Context
+
+Challenge 3 explicitly says: *"Detect early warning signals of financial stress **or fraud** (unusual transaction patterns, missed EMIs, sudden behavior change)."* We built stress detection (ADR-015) but have no fraud detection. This is a gap in problem statement coverage.
+
+### Decision
+
+**Build a deterministic rule-based anomaly detection engine** with 5 named rules (unusual merchant, sudden large withdrawal, frequency spike, category shift, velocity check). Same architecture philosophy as stress detection — deterministic, explainable, auditable.
+
+### Rationale
+
+1. The word "fraud" is explicitly in Challenge 3.
+2. "Unusual transaction patterns" and "sudden behavior change" are explicitly named.
+3. Rule-based detection is consistent with our explainability-first architecture (ADR-011).
+
+### Consequences
+
+- (+) Closes a gap in Challenge 3 coverage
+- (+) Each anomaly has a named reason (consistent with ADR-013)
+- (–) Rules are illustrative, not calibrated against real fraud data (acceptable for hackathon)
+
+---
+
+## ADR-018: Contextual Timing Engine
+
+**Status**: ✅ Accepted
+**Date**: 2026-09-12
+
+### Context
+
+Challenge 1 says: *"proactively recommend the most relevant banking product **at the right moment**."* Our current system recommends the right product but has no concept of timing — it doesn't know *when* to recommend.
+
+### Decision
+
+**Build a deterministic timing engine** that computes optimal recommendation moments based on transaction patterns: salary credits (savings momentum), festival proximity, EMI due dates, savings stability trends.
+
+### Rationale
+
+1. "At the right moment" is explicit in the challenge text.
+2. Transforms "what to recommend" into the full "what + when + why now" trifecta.
+3. Most teams will only answer "what" — timing is a differentiator.
+
+### Consequences
+
+- (+) Adds a "⏰ Why Now?" badge to recommendations — highly visual
+- (+) Directly addresses the exact problem statement language
+- (–) Timing rules are heuristic-based (acceptable — real timing would require historical patterns)
+
+---
+
+## ADR-019: PII Redaction Before LLM Processing
+
+**Status**: ✅ Accepted
+**Date**: 2026-09-12
+
+### Context
+
+Even when user consent is granted, sending raw PII (Aadhaar, PAN, phone numbers, account numbers) to an LLM is a privacy risk. The DPDP Act principle of data minimization requires that only necessary data is processed.
+
+### Decision
+
+**Implement a PII redaction layer** that masks sensitive Indian PII formats before any data is sent to Gemini. Patterns: Aadhaar (XXXX-XXXX-1234), PAN (XXXXX1234X), phone (+91-XXXXX-67890), account numbers (XXXXXXXX1234), email (u***@example.com).
+
+### Rationale
+
+1. Defense-in-depth: consent toggles control *whether* data is accessed; PII redaction controls *what* the LLM sees.
+2. "Data privacy" is an explicit deliverable.
+3. Shows sophisticated privacy engineering at the data layer, not just UI toggles.
+
+### Consequences
+
+- (+) "Even with consent, the LLM never sees full Aadhaar numbers" — powerful compliance answer
+- (+) Audit logged: "PII redacted: 2 fields masked before LLM processing"
+- (–) 45 minutes of effort for outsized compliance credibility
+
+---
+
+## ADR-020: Automated Eval Suite for Agentic Pipeline
+
+**Status**: ✅ Accepted
+**Date**: 2026-09-12
+
+### Context
+
+AI systems are notoriously difficult to test. Most hackathon teams rely entirely on manual testing. An automated eval suite that verifies the agentic pipeline behaves correctly across all personas and edge cases is a strong signal of engineering maturity.
+
+### Decision
+
+**Build a script (`scripts/eval-suite.ts`) with 12+ automated assertions** covering: consent checks, signal extraction correctness, wellness gate behavior, guardrail effectiveness, and recommendation reason traces.
+
+### Rationale
+
+1. "Technical feasibility" is a judging criterion — automated tests prove it.
+2. Can be run live during Q&A: "Let me run our eval suite right now."
+3. No hackathon team does this — it's a decisive differentiator.
+
+### Consequences
+
+- (+) Proves engineering rigor
+- (+) Catches regressions during rapid hackathon development
+- (+) Demoable artifact
+- (–) 1.5 hours of effort (worth it for the judge impression)
+
