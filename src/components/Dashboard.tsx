@@ -14,6 +14,7 @@ import { DecisionExplainer, Counterfactual } from "./DecisionExplainer";
 import { ChannelPreview } from "./ChannelPreview";
 import { ModelPanel } from "./ModelPanel";
 import { TimeMachine } from "./TimeMachine";
+import { DecisionReceipt } from "./DecisionReceipt";
 import { ThemeToggle } from "./ThemeToggle";
 import { Badge } from "./ui/badge";
 import {
@@ -252,7 +253,22 @@ export function Dashboard() {
               {recLoading ? (
                 <div className="h-48 animate-pulse rounded-lg border border-line bg-surface-2" />
               ) : (
-                payload && <AuditLogPanel logs={payload.auditLogs} chain={payload.chain} />
+                payload && (
+                  <>
+                    <AuditLogPanel logs={payload.auditLogs} chain={payload.chain} />
+                    <DecisionReceipt
+                      customerId={customerId}
+                      customerName={customer?.name}
+                      recommendation={payload.recommendation}
+                      timing={payload.timing}
+                      model={payload.model}
+                      counterfactuals={payload.counterfactuals}
+                      auditLogs={payload.auditLogs}
+                      chain={payload.chain}
+                      asOf={payload.asOf}
+                    />
+                  </>
+                )
               )}
             </div>
           </div>

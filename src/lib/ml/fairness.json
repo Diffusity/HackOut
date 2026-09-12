@@ -1,7 +1,21 @@
 {
-  "generatedAt": "2026-09-12T14:13:54.164Z",
+  "generatedAt": "2026-09-12T15:28:31.477Z",
   "populationSize": 6000,
   "adverseImpactFloor": 0.8,
+  "suppression": {
+    "customers": 1052,
+    "rate": 0.1753,
+    "byWithheldProduct": [
+      {
+        "product": "RD",
+        "count": 673
+      },
+      {
+        "product": "PERSONAL_LOAN",
+        "count": 379
+      }
+    ]
+  },
   "attributes": [
     {
       "attribute": "gender",

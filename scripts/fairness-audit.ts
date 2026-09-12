@@ -16,6 +16,7 @@ import fs from "fs";
 import path from "path";
 import { buildPopulation, TrainingRow } from "./population";
 import { decide } from "../src/lib/tools/counterfactuals";
+import { recommendProduct } from "../src/lib/tools/recommendProduct";
 import { predictDistress } from "../src/lib/ml/model";
 import { Signals } from "../src/lib/types";
 
@@ -111,10 +112,30 @@ function main() {
     ),
   });
 
+  // The number a bank would normally never publish: how much selling we chose
+  // not to do. It is the honest measure of whether the wellness gate is real.
+  let suppressed = 0;
+  const suppressedProducts = new Map<string, number>();
+  for (const { signals } of enriched) {
+    const base = recommendProduct(signals).output.product;
+    const outcome = decide(signals);
+    if (outcome.suppressed) {
+      suppressed++;
+      suppressedProducts.set(base, (suppressedProducts.get(base) ?? 0) + 1);
+    }
+  }
+
   const report = {
     generatedAt: new Date().toISOString(),
     populationSize: population.length,
     adverseImpactFloor: ADVERSE_IMPACT_FLOOR,
+    suppression: {
+      customers: suppressed,
+      rate: Number((suppressed / population.length).toFixed(4)),
+      byWithheldProduct: [...suppressedProducts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([product, count]) => ({ product, count })),
+    },
     attributes: attributes.map((a) => ({ ...a, ...impactRatio(a.groups) })),
     notes: [
       "Protected attributes are never model features; they exist here only to measure outcomes.",

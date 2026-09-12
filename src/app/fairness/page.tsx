@@ -28,6 +28,33 @@ export default function FairnessPage() {
         </p>
       </Section>
 
+      <Section title="What we chose not to sell">
+        <div className="rounded-lg border border-line bg-surface-2 p-5">
+          <div className="tnum text-4xl font-semibold tracking-tight">
+            {fairness.suppression.customers.toLocaleString("en-IN")}
+          </div>
+          <p className="mt-1 text-sm text-fg-muted">
+            offers withheld — {(fairness.suppression.rate * 100).toFixed(1)}% of the modelled
+            customer base
+          </p>
+        </div>
+
+        <DataTable
+          head={["Product withheld", "Customers"]}
+          rows={fairness.suppression.byWithheldProduct.map((p) => [
+            p.product.replace(/_/g, " "),
+            p.count.toLocaleString("en-IN"),
+          ])}
+        />
+
+        <p>
+          This is the number a bank would normally never publish, and it is the only honest test of
+          whether a wellness gate is real. Each of these customers had a product the recommender
+          considered a good match; the gate held it back because the signals said they were under
+          pressure.
+        </p>
+      </Section>
+
       {fairness.attributes.map((attribute) => (
         <Section key={attribute.attribute} title={attribute.attribute}>
           <div className="flex flex-wrap items-center gap-2">
