@@ -465,7 +465,7 @@
 | 22 | Multi-Language | DONE | narration, SMS and IVR in en + hi (ADR-024) |
 | 24 | Architecture Visualisation | PARTIAL | pipeline documented in README; no diagram page |
 | 25 | Fairness Audit | DONE | `/fairness`, four-fifths rule, publishes a failing result (ADR-030) |
-| 14 | Guided Loan Journey | NOT BUILT | deprioritised for the ML layer and explainability work |
+| 14 | Guided Loan Journey | PARTIAL | the loan journey exists end to end (offer, KFS, accept, cooling-off cancel); a multi-step form with drop-off telemetry does not |
 | 15 | Fraud/Anomaly Detection | NOT BUILT | the distress model covers early warning; transaction fraud is a separate model we did not have time to do honestly |
 | 20 | Response Caching | SUPERSEDED | deterministic narration removed the quota dependency entirely (ADR-024) |
 | 23 | Observability Dashboard | SUPERSEDED | the hash-chained audit ledger serves this purpose (ADR-025) |
@@ -482,6 +482,8 @@
 | Bharat Mode (SMS + IVR rendering) | 024 | eval asserts 160-char limit for every persona |
 | Per-scope consent degradation | 031 | toggling a scope changes the decision |
 | Suppression ledger | 030 | `/fairness` |
+| Postgres persistence, durable audit chain, consent ledger | 032 | `npm run db:verify` — 26 assertions against real Postgres |
+| RBI Key Facts Statement, IRR-based APR, cooling-off exit | 033 | `npm run verify:kfs` — 31 assertions |
 
 ## 16. Standing Decisions (record once, apply everywhere)
 
