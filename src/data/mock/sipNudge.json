@@ -1,12 +1,7 @@
 [
   {
     "customerId": "CUST_PRIYA",
-    "suggestedSip": {
-      "productId": "SIP_001",
-      "name": "Monthly SIP - Mutual Fund",
-      "amount": 2000,
-      "frequency": "monthly"
-    },
-    "reason": "High savings rate and stable income"
+    "suggestedSipAmount": 2000,
+    "message": "High savings rate and stable income. Start a SIP to grow your wealth!"
   }
 ]
