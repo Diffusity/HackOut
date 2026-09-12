@@ -1,6 +1,7 @@
 import React from 'react';
 import { useRecommendation } from '../hooks/useRecommendation';
 import type { SipNudge, Customer } from '../lib/types';
+import { Lightbulb } from 'lucide-react';
 
 export const SIPNudgeBanner: React.FC<{ customer: Customer | null }> = ({ customer }) => {
   const { sipRecommendation, loading } = useRecommendation(customer);
@@ -12,15 +13,18 @@ export const SIPNudgeBanner: React.FC<{ customer: Customer | null }> = ({ custom
   const { suggestedSipAmount, message } = sipRecommendation as SipNudge;
 
   return (
-    <section className="bg-glass backdrop-blur-md p-4 rounded-xl shadow-lg text-white mb-4">
-      <h2 className="text-xl font-semibold mb-2">💡 SIP Recommendation</h2>
-      <p className="mb-3">{message}</p>
-      <div className="flex items-center gap-4">
-        <span className="text-2xl font-bold">₹{suggestedSipAmount.toLocaleString()}</span>
-        <button className="bg-primary-500 hover:bg-primary-600 text-white font-medium py-2 px-4 rounded transition-colors">
+    <div className="rounded-xl border border-line bg-surface p-5 shadow-sm mb-5 animate-fade-up">
+      <div className="mb-3 flex items-center gap-2">
+        <Lightbulb className="h-5 w-5 text-accent" />
+        <h2 className="text-sm font-semibold tracking-tight text-fg">SIP Recommendation</h2>
+      </div>
+      <p className="mb-4 text-sm leading-relaxed text-fg-muted">{message}</p>
+      <div className="flex items-center justify-between">
+        <span className="text-2xl font-bold text-fg">₹{suggestedSipAmount.toLocaleString()}</span>
+        <button className="rounded-lg bg-accent/10 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20">
           Set Up SIP
         </button>
       </div>
-    </section>
+    </div>
   );
 };
