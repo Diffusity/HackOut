@@ -6,6 +6,7 @@ import { speak, stopSpeaking } from "@/lib/speech";
 import { Recommendation } from "@/lib/types";
 import { MessageSquare, X, Send, Mic, MicOff, Loader2, Info } from "lucide-react";
 import { Badge } from "./ui/badge";
+import { LANGUAGES, getVoiceLocale } from "@/lib/languageMap";
 
 interface Message {
   role: "user" | "bot";
@@ -36,7 +37,7 @@ export function ChatWidget({ customerId, customerName, recommendation = null }: 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([greeting(customerName)]);
   const [input, setInput] = useState("");
-  const [lang, setLang] = useState<"en" | "hi">("en");
+  const [lang, setLang] = useState<"en" | "hi" | "es" | "fr">("en");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +49,7 @@ export function ChatWidget({ customerId, customerName, recommendation = null }: 
     stopListening,
     clearTranscript,
     error: voiceError,
-  } = useVoice(lang === "hi" ? "hi-IN" : "en-IN");
+  } = useVoice(getVoiceLocale(lang));
 
   /**
    * A conversation belongs to one customer. Carrying Priya's thread over to
@@ -186,23 +187,26 @@ export function ChatWidget({ customerId, customerName, recommendation = null }: 
             </div>
 
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setLang(lang === "en" ? "hi" : "en")}
-                className="rounded border border-line px-2 py-1 text-[11px] font-semibold text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value as "en" | "hi" | "es" | "fr")}
+                className="rounded border border-line bg-surface px-2 py-1 text-[11px] font-semibold text-fg-muted focus:outline-none"
               >
-                {lang === "en" ? "ENG" : "हिंदी"}
-              </button>
+                {Object.entries(LANGUAGES).map(([code, info]) => (
+                  <option key={code} value={code}>
+                    {info.label}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
                   stopSpeaking();
                 }}
-                aria-label="Close chat"
-                className="rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+                className="rounded border border-line px-2 py-1 text-[11px] font-semibold text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
               >
-                <X className="h-4 w-4" />
+                ✕
               </button>
             </div>
           </div>
