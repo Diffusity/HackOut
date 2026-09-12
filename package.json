@@ -15,7 +15,8 @@
     "db:seed": "tsx scripts/db-setup.ts seed",
     "db:check": "tsx scripts/db-setup.ts check",
     "db:verify": "tsx scripts/verify-db.ts",
-    "verify:kfs": "tsx scripts/verify-kfs.ts"
+    "verify:kfs": "tsx scripts/verify-kfs.ts",
+    "db:reset": "tsx scripts/db-setup.ts reset"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

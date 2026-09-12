@@ -4,6 +4,7 @@
  *   npm run db:migrate   # create tables
  *   npm run db:seed      # load the demo customers and transactions
  *   npm run db:check     # connectivity, row counts, chain integrity
+ *   npm run db:reset     # clear the audit ledger and renumber from 1
  *
  * Seeding is idempotent: re-running it updates rather than duplicating, so it
  * is safe to run against a live demo database between rehearsals.
@@ -180,6 +181,21 @@ async function seed(sql: postgres.Sql) {
   }
 }
 
+/**
+ * Clears the ledger and restarts numbering at 1.
+ *
+ * The only supported way to remove audit records. Everything else in this
+ * codebase treats them as append-only, and the hash chain is designed so that
+ * deleting rows piecemeal is detectable. Wiping the whole chain and starting a
+ * fresh one is honest; quietly removing rows from the middle of it is not.
+ */
+async function resetAudit(sql: postgres.Sql) {
+  await sql`TRUNCATE audit_records RESTART IDENTITY`;
+  await sql`DELETE FROM loan_offers`;
+  console.log("Audit ledger cleared and renumbered from 1. Loan offers cleared.");
+  console.log("Consent history and customer data were left alone.");
+}
+
 async function check(sql: postgres.Sql) {
   const [version] = await sql<{ version: string }[]>`SELECT version()`;
   console.log(version.version.split(",")[0]);
@@ -223,6 +239,7 @@ async function main() {
   const sql = connect();
   try {
     if (command === "migrate") await migrate(sql);
+    else if (command === "reset") await resetAudit(sql);
     else if (command === "seed") {
       await migrate(sql);
       await seed(sql);

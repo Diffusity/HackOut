@@ -177,10 +177,21 @@ async function main() {
   check("No penalty was recorded", exit.penalty === 0);
 
   console.log("\nCleanup");
-  await admin`DELETE FROM audit_records WHERE action = ${marker}`;
+  // Deliberately NOT deleting from audit_records.
+  //
+  // It is an append-only, hash-chained ledger; removing rows is precisely the
+  // operation it exists to make detectable, and a verification script that
+  // quietly does it is undermining the property it just finished asserting.
+  // Earlier versions did delete, which left the live ledger starting at
+  // sequence 5 and looking, reasonably, like records had gone missing.
+  //
+  // The probe rows stay. They are truthful records of a verification run, which
+  // is exactly what an audit ledger is for. `npm run db:reset` clears the whole
+  // ledger when a clean slate is genuinely wanted, such as before a demo.
   await admin`DELETE FROM loan_offers WHERE proposal_no = ${offer.proposalNo}`;
   await admin`DELETE FROM consent_records WHERE purpose LIKE 'verify-db probe%'`;
-  console.log("  probe rows removed");
+  console.log(`  probe loan offer and consent rows removed`);
+  console.log(`  ${firstBatch.length + secondBatch.length} audit records kept — the ledger is append-only`);
 
   await admin.end();
 

@@ -37,7 +37,15 @@ export function AuditLogPanel({ logs, chain }: { logs: AuditRecord[]; chain?: Ch
         </div>
         {chain && (
           <p className="text-xs leading-relaxed text-fg-muted">
-            {chain.entries} sealed records. Head{" "}
+            {/*
+              These two numbers count different things and used to look like a
+              contradiction: the chain spans every customer, the list below is
+              only this one. Saying so is cheaper than explaining it out loud to
+              someone reading the panel.
+            */}
+            <span className="tnum">{chain.entries}</span> records in the chain, across all
+            customers. Showing the <span className="tnum">{logs.length}</span> for this customer,
+            newest first. Head{" "}
             <span className="tnum font-mono">{chain.headHash.slice(0, 16)}…</span>
           </p>
         )}
@@ -54,7 +62,17 @@ export function AuditLogPanel({ logs, chain }: { logs: AuditRecord[]; chain?: Ch
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="tnum font-mono text-[10px] text-fg-subtle">#{log.seq}</span>
+                    {/*
+                      A ledger position assigned by the database, not an index
+                      into this list. It does not start at 1 and it is not
+                      "N of N" — the title says so for anyone who wonders.
+                    */}
+                    <span
+                      className="tnum font-mono text-[10px] text-fg-subtle"
+                      title={`Ledger position ${log.seq}, assigned by the database across all customers`}
+                    >
+                      #{log.seq}
+                    </span>
                     <span className="truncate text-xs font-medium">{log.action}</span>
                   </div>
                   <div className="mt-1 truncate text-xs text-fg-muted">{log.decision}</div>
