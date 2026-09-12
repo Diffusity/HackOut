@@ -7,6 +7,7 @@ import { WellnessGauge } from "./WellnessGauge";
 import { RecommendationCard } from "./RecommendationCard";
 import { AuditLogPanel } from "./AuditLogPanel";
 import { IncomeSpendChart } from "./IncomeSpendChart";
+import { ChatWidget } from "./ChatWidget";
 import { Customer, Signals, AuditEntry, Recommendation } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 
@@ -127,6 +128,7 @@ export function Dashboard() {
           </div>
         )}
       </div>
+      <ChatWidget customerId={customerId} />
     </div>
   );
 }
