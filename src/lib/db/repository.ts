@@ -174,6 +174,32 @@ export function currentSnapshot(): Snapshot {
   return cached;
 }
 
+/**
+ * Runs a database operation, or gives up and returns `fallback`.
+ *
+ * The design promise in ADR-032 is that a database which will not answer makes
+ * the product degrade, never fail. That promise was broken by every repository
+ * function below throwing straight into a route handler, which turned an
+ * unreachable database into a wall of 500s. Routing every call through here
+ * keeps the promise in one place instead of asking each caller to remember it.
+ *
+ * The error is recorded so the UI can say what went wrong rather than silently
+ * showing seed data.
+ */
+async function attempt<T>(label: string, fallback: T, run: () => Promise<T>): Promise<T> {
+  const sql = getSql();
+  if (!sql) return fallback;
+
+  try {
+    return await run();
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    recordDatabaseError(message);
+    console.error(`[db] ${label} failed, continuing without the database: ${message}`);
+    return fallback;
+  }
+}
+
 // ---------------------------------------------------------------- consent
 
 export async function recordConsentChange(
@@ -182,15 +208,14 @@ export async function recordConsentChange(
   granted: boolean,
   purpose: string
 ): Promise<void> {
-  const sql = getSql();
-  if (!sql) return;
-
-  await sql`
-    INSERT INTO consent_records (customer_id, scope, granted, purpose)
-    VALUES (${customerId}, ${scope}, ${granted}, ${purpose})
-  `;
-  // The snapshot's consent view is now stale.
-  if (cached) cached.loadedAt = 0;
+  await attempt("recordConsentChange", undefined, async () => {
+    await getSql()!`
+      INSERT INTO consent_records (customer_id, scope, granted, purpose)
+      VALUES (${customerId}, ${scope}, ${granted}, ${purpose})
+    `;
+    // The snapshot's consent view is now stale.
+    if (cached) cached.loadedAt = 0;
+  });
 }
 
 export interface ConsentHistoryEntry {
@@ -201,44 +226,41 @@ export interface ConsentHistoryEntry {
 }
 
 export async function getConsentHistory(customerId: string): Promise<ConsentHistoryEntry[]> {
-  const sql = getSql();
-  if (!sql) return [];
+  return attempt("getConsentHistory", [] as ConsentHistoryEntry[], async () => {
+    const rows = await getSql()!<
+      { scope: string; granted: boolean; purpose: string; changed_at: Date }[]
+    >`
+      SELECT scope, granted, purpose, changed_at
+      FROM consent_records
+      WHERE customer_id = ${customerId}
+      ORDER BY changed_at DESC
+      LIMIT 50
+    `;
 
-  const rows = await sql<
-    { scope: string; granted: boolean; purpose: string; changed_at: Date }[]
-  >`
-    SELECT scope, granted, purpose, changed_at
-    FROM consent_records
-    WHERE customer_id = ${customerId}
-    ORDER BY changed_at DESC
-    LIMIT 50
-  `;
-
-  return rows.map((r) => ({
-    scope: r.scope,
-    granted: r.granted,
-    purpose: r.purpose,
-    changedAt: new Date(r.changed_at).toISOString(),
-  }));
+    return rows.map((r) => ({
+      scope: r.scope,
+      granted: r.granted,
+      purpose: r.purpose,
+      changedAt: new Date(r.changed_at).toISOString(),
+    }));
+  });
 }
 
 // ---------------------------------------------------------------- audit
 
 /** The hash the in-process chain must continue from, so it survives restarts. */
 export async function getAuditHead(): Promise<{ seq: number; hash: string } | null> {
-  const sql = getSql();
-  if (!sql) return null;
-
-  const rows = await sql<{ seq: string; hash: string }[]>`
-    SELECT seq, hash FROM audit_records ORDER BY seq DESC LIMIT 1
-  `;
-  if (rows.length === 0) return null;
-  return { seq: Number(rows[0].seq), hash: rows[0].hash };
+  return attempt("getAuditHead", null as { seq: number; hash: string } | null, async () => {
+    const rows = await getSql()!<{ seq: string; hash: string }[]>`
+      SELECT seq, hash FROM audit_records ORDER BY seq DESC LIMIT 1
+    `;
+    if (rows.length === 0) return null;
+    return { seq: Number(rows[0].seq), hash: rows[0].hash };
+  });
 }
 
 export async function persistAuditRecords(records: AuditRecord[]): Promise<number> {
-  const sql = getSql();
-  if (!sql || records.length === 0) return 0;
+  if (records.length === 0) return 0;
 
   const rows = records.map((r) => ({
     customer_id: r.customerId,
@@ -252,32 +274,33 @@ export async function persistAuditRecords(records: AuditRecord[]): Promise<numbe
     occurred_at: r.timestamp,
   }));
 
-  // ON CONFLICT on the hash makes the write idempotent: a retried request
-  // cannot fork the chain by inserting the same record twice.
-  await sql`
-    INSERT INTO audit_records ${sql(
-      rows,
-      "customer_id",
-      "action",
-      "data_accessed",
-      "consent_verified",
-      "decision",
-      "reason_trace",
-      "prev_hash",
-      "hash",
-      "occurred_at"
-    )}
-    ON CONFLICT (hash) DO NOTHING
-  `;
+  return attempt("persistAuditRecords", 0, async () => {
+    const sql = getSql()!;
+    // ON CONFLICT on the hash makes the write idempotent: a retried request
+    // cannot fork the chain by inserting the same record twice.
+    await sql`
+      INSERT INTO audit_records ${sql(
+        rows,
+        "customer_id",
+        "action",
+        "data_accessed",
+        "consent_verified",
+        "decision",
+        "reason_trace",
+        "prev_hash",
+        "hash",
+        "occurred_at"
+      )}
+      ON CONFLICT (hash) DO NOTHING
+    `;
 
-  return rows.length;
+    return rows.length;
+  });
 }
 
 export async function getPersistedAudit(customerId: string, limit = 25): Promise<AuditRecord[]> {
-  const sql = getSql();
-  if (!sql) return [];
-
-  const rows = await sql<
+  return attempt("getPersistedAudit", [] as AuditRecord[], async () => {
+  const rows = await getSql()!<
     {
       seq: string;
       customer_id: string;
@@ -299,18 +322,19 @@ export async function getPersistedAudit(customerId: string, limit = 25): Promise
     LIMIT ${limit}
   `;
 
-  return rows.map((r) => ({
-    seq: Number(r.seq),
-    customerId: r.customer_id,
-    action: r.action,
-    dataAccessed: r.data_accessed,
-    consentVerified: r.consent_verified,
-    decision: r.decision,
-    reasonTrace: r.reason_trace,
-    prevHash: r.prev_hash,
-    hash: r.hash,
-    timestamp: new Date(r.occurred_at),
-  }));
+    return rows.map((r) => ({
+      seq: Number(r.seq),
+      customerId: r.customer_id,
+      action: r.action,
+      dataAccessed: r.data_accessed,
+      consentVerified: r.consent_verified,
+      decision: r.decision,
+      reasonTrace: r.reason_trace,
+      prevHash: r.prev_hash,
+      hash: r.hash,
+      timestamp: new Date(r.occurred_at),
+    }));
+  });
 }
 
 /**
@@ -324,10 +348,10 @@ export async function verifyPersistedChain(): Promise<{
   brokenAt: number | null;
   headHash: string | null;
 }> {
-  const sql = getSql();
-  if (!sql) return { valid: true, entries: 0, brokenAt: null, headHash: null };
+  const empty = { valid: true, entries: 0, brokenAt: null as number | null, headHash: null as string | null };
 
-  const rows = await sql<{ seq: string; prev_hash: string; hash: string }[]>`
+  return attempt("verifyPersistedChain", empty, async () => {
+  const rows = await getSql()!<{ seq: string; prev_hash: string; hash: string }[]>`
     SELECT seq, prev_hash, hash FROM audit_records ORDER BY seq ASC
   `;
 
@@ -339,10 +363,11 @@ export async function verifyPersistedChain(): Promise<{
     previous = row.hash;
   }
 
-  return {
-    valid: true,
-    entries: rows.length,
-    brokenAt: null,
-    headHash: rows.length > 0 ? previous : null,
-  };
+    return {
+      valid: true,
+      entries: rows.length,
+      brokenAt: null,
+      headHash: rows.length > 0 ? previous : null,
+    };
+  });
 }

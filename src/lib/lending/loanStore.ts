@@ -1,4 +1,4 @@
-import { getSql } from "../db/client";
+import { getSql, recordDatabaseError } from "../db/client";
 import { KeyFactsStatement } from "./keyFactStatement";
 
 /**
@@ -45,6 +45,23 @@ export interface LoanOffer {
 const globalStore = globalThis as unknown as { __dhansathiOffers?: Map<string, LoanOffer> };
 const memory: Map<string, LoanOffer> = (globalStore.__dhansathiOffers ??= new Map());
 
+/**
+ * Every database call here is best-effort. The in-memory map is always written
+ * first, so an unreachable database costs durability but never takes the loan
+ * journey down mid-demo (ADR-032).
+ */
+async function tryDb<T>(label: string, fallback: T, run: () => Promise<T>): Promise<T> {
+  if (!getSql()) return fallback;
+  try {
+    return await run();
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    recordDatabaseError(message);
+    console.error(`[db] ${label} failed, using in-memory offers: ${message}`);
+    return fallback;
+  }
+}
+
 function fromKfs(kfs: KeyFactsStatement): LoanOffer {
   return {
     proposalNo: kfs.proposalNo,
@@ -69,8 +86,8 @@ export async function saveOffer(kfs: KeyFactsStatement, product: string): Promis
   const offer = { ...fromKfs(kfs), product };
   memory.set(offer.proposalNo, offer);
 
-  const sql = getSql();
-  if (sql) {
+  await tryDb("saveOffer", undefined, async () => {
+    const sql = getSql()!;
     await sql`
       INSERT INTO loan_offers (
         proposal_no, customer_id, product, principal, tenor_months,
@@ -82,15 +99,14 @@ export async function saveOffer(kfs: KeyFactsStatement, product: string): Promis
       )
       ON CONFLICT (proposal_no) DO NOTHING
     `;
-  }
+  });
 
   return offer;
 }
 
 export async function getOffer(proposalNo: string): Promise<LoanOffer | null> {
-  const sql = getSql();
-  if (sql) {
-    const rows = await sql<
+  const fromDb = await tryDb("getOffer", null as LoanOffer | null, async () => {
+    const rows = await getSql()!<
       {
         proposal_no: string;
         customer_id: string;
@@ -130,9 +146,10 @@ export async function getOffer(proposalNo: string): Promise<LoanOffer | null> {
         cancellationAmount: r.cancellation_amount ? Number(r.cancellation_amount) : null,
       };
     }
-  }
+    return null;
+  });
 
-  return memory.get(proposalNo) ?? null;
+  return fromDb ?? memory.get(proposalNo) ?? null;
 }
 
 export async function acceptOffer(
@@ -151,16 +168,15 @@ export async function acceptOffer(
   };
   memory.set(proposalNo, updated);
 
-  const sql = getSql();
-  if (sql) {
-    await sql`
+  await tryDb("acceptOffer", undefined, async () => {
+    await getSql()!`
       UPDATE loan_offers
          SET status = 'accepted',
              accepted_at = ${acceptedAt},
              cooling_off_ends_at = ${coolingOffEndsAt}
        WHERE proposal_no = ${proposalNo}
     `;
-  }
+  });
 
   return updated;
 }
@@ -181,31 +197,30 @@ export async function cancelOffer(
   };
   memory.set(proposalNo, updated);
 
-  const sql = getSql();
-  if (sql) {
-    await sql`
+  await tryDb("cancelOffer", undefined, async () => {
+    await getSql()!`
       UPDATE loan_offers
          SET status = 'cancelled',
              cancelled_at = ${cancelledAt},
              cancellation_amount = ${amount}
        WHERE proposal_no = ${proposalNo}
     `;
-  }
+  });
 
   return updated;
 }
 
 export async function listOffersForCustomer(customerId: string): Promise<LoanOffer[]> {
-  const sql = getSql();
-  if (sql) {
-    const rows = await sql<{ proposal_no: string }[]>`
+  const fromDb = await tryDb("listOffersForCustomer", null as LoanOffer[] | null, async () => {
+    const rows = await getSql()!<{ proposal_no: string }[]>`
       SELECT proposal_no FROM loan_offers
        WHERE customer_id = ${customerId}
        ORDER BY issued_at DESC LIMIT 10
     `;
     const offers = await Promise.all(rows.map((r) => getOffer(r.proposal_no)));
     return offers.filter((o): o is LoanOffer => o !== null);
-  }
+  });
+  if (fromDb) return fromDb;
 
   return [...memory.values()]
     .filter((o) => o.customerId === customerId)
