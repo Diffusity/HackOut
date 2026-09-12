@@ -60,6 +60,16 @@ export interface StressAlert {
   empatheticMessage: string;
 }
 
+export type TimingUrgency = "now" | "soon" | "scheduled";
+
+export interface TimingSignals {
+  customerId: string;
+  /** null = no time-sensitive trigger right now */
+  trigger: string | null;
+  urgency: TimingUrgency;
+  reason: string;
+}
+
 export interface AuditEntry {
   timestamp: Date;
   customerId: string;
