@@ -13,7 +13,8 @@
     "audit:fairness": "tsx scripts/fairness-audit.ts",
     "db:migrate": "tsx scripts/db-setup.ts migrate",
     "db:seed": "tsx scripts/db-setup.ts seed",
-    "db:check": "tsx scripts/db-setup.ts check"
+    "db:check": "tsx scripts/db-setup.ts check",
+    "db:verify": "tsx scripts/verify-db.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

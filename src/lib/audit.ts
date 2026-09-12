@@ -9,8 +9,9 @@ import { AuditEntry, AuditRecord } from "./types";
  * Changing or removing any past entry breaks every hash after it, and
  * `verifyChain()` reports exactly where the break is.
  *
- * Demo scope: in-process storage. Production would append the same records to
- * WORM storage; the chaining logic is unchanged (see /compliance).
+ * Records are built here and flushed to Postgres after each request (ADR-032),
+ * with each request continuing the chain from the persisted head. Without a
+ * database configured the chain lives for the life of the process instead.
  */
 
 const GENESIS = "0".repeat(64);
@@ -24,7 +25,11 @@ const auditLogs: AuditRecord[] = [];
  * across serverless instances and restarts rather than starting over — which
  * is what turns "we keep a log" into a record that survives the demo.
  */
-let chainBaseSeq = 0;
+// Starts at 1 to agree with Postgres BIGSERIAL. The sequence number is part of
+// the hashed payload, so in-memory and persisted numbering must not diverge —
+// otherwise a record hashed as #0 is stored as #1 and the two disagree about
+// what was signed.
+let chainBaseSeq = 1;
 let chainBaseHash = GENESIS;
 /** Index into auditLogs of the first record not yet written to the database. */
 let flushedUpTo = 0;
@@ -112,7 +117,7 @@ export function __tamperForTest(seq: number, decision: string): void {
 
 export function __resetAuditForTest(): void {
   auditLogs.length = 0;
-  chainBaseSeq = 0;
+  chainBaseSeq = 1;
   chainBaseHash = GENESIS;
   flushedUpTo = 0;
 }

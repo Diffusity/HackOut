@@ -80,6 +80,16 @@ To run it on Postgres instead:
 # Copy the connection-pooler URI into .env as DATABASE_URL, then:
 npm run db:seed     # creates the schema and loads the demo data
 npm run db:check    # row counts and audit-chain integrity
+npm run db:verify   # 26 integration assertions against the live database
+```
+
+Or locally, with no account:
+
+```bash
+docker run -d --name dhansathi-pg \
+  -e POSTGRES_PASSWORD=dhansathi -e POSTGRES_DB=dhansathi \
+  -p 55432:5432 postgres:16-alpine
+# DATABASE_URL=postgres://postgres:dhansathi@localhost:55432/dhansathi
 ```
 
 `.env` (optional — see below):
@@ -151,6 +161,8 @@ npm run verify          # counterfactuals, ML, guardrails, KFS/APR, signals, str
 npx tsc --noEmit        # typecheck
 npm run build           # production build
 ```
+
+`npm run db:verify` is the one that needs credentials. It asserts what a reviewer would reasonably doubt: that the audit chain **continues from the persisted head after a simulated instance restart** rather than quietly starting over, that tampering with a stored row is detected, that re-persisting the same records cannot fork the chain, and that a Key Facts Statement survives issue, accept and cooling-off cancel intact.
 
 The eval suite asserts the things that must never regress: a stressed customer is never sold credit, risk never falls as missed EMIs rise, altering a past audit record breaks verification, off-topic questions get distinct refusals, and every persona's decision fits in a 160-character SMS in both languages.
 
