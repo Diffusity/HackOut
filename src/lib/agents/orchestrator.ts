@@ -3,9 +3,10 @@ import { checkConsent } from "../tools/checkConsent";
 import { getCustomerSignals } from "../tools/getCustomerSignals";
 import { recommendProduct } from "../tools/recommendProduct";
 import { detectStressSignals } from "../tools/detectStressSignals";
+import { computeTimingSignals } from "../tools/computeTimingSignals";
 import { applyWellnessGate } from "../tools/wellnessGate";
 import { logAuditEntry } from "../audit";
-import { Recommendation, ToolResult } from "../types";
+import { Recommendation, TimingSignals, ToolResult } from "../types";
 import { FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { checkOutputGuardrails } from "../guardrails";
 
@@ -45,6 +46,19 @@ const recommendProductDeclaration: FunctionDeclaration = {
   },
 };
 
+const computeTimingSignalsDeclaration: FunctionDeclaration = {
+  name: "computeTimingSignals",
+  description:
+    "Deterministically computes the customer's current life-context timing (salary just credited, EMI due soon, festival window, stable savings momentum, spend pattern shift). Use it to decide WHEN a recommendation is most relevant and to phrase the timing empathetically.",
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      customerId: { type: SchemaType.STRING, description: "The ID of the customer" },
+    },
+    required: ["customerId"],
+  },
+};
+
 // Wrapper for the LLM to call
 async function recommendProductWrapper(customerId: string): Promise<ToolResult<Recommendation>> {
   const signalsResult = getCustomerSignals(customerId);
@@ -68,7 +82,7 @@ export class AgentOrchestrator {
     this.customerId = customerId;
   }
 
-  async recommend(): Promise<{ recommendation: ToolResult<Recommendation>; narration: string }> {
+  async recommend(): Promise<{ recommendation: ToolResult<Recommendation>; narration: string; timing: ToolResult<TimingSignals> | null }> {
     // Check if API key is missing
     if (!process.env.GEMINI_API_KEY) {
       console.warn("No GEMINI_API_KEY found, running fallback deterministic pipeline");
@@ -80,6 +94,9 @@ export class AgentOrchestrator {
       Your goal is to recommend a product for the customer.
       You MUST ALWAYS call checkConsent first. If consent is denied, stop and say so.
       Then call recommendProduct. 
+      Also call computeTimingSignals to learn the customer's current life-context (e.g. salary just credited, EMI due soon, festival window).
+      If timing has a trigger, weave it into your explanation naturally (e.g. "now is a good moment because your salary just came in"), using ONLY the timing reason provided.
+      If the timing reason says the alert is proactive (not an offer), do NOT push a product — acknowledge the moment supportively.
       When you get the recommendation result, look at the reasonTrace. 
       Your final response must be a plain, empathetic, human-readable explanation of why this product is recommended, using ONLY the facts from the reasonTrace.
       Do not invent reasons. Keep banking terminology simple.
@@ -95,6 +112,7 @@ export class AgentOrchestrator {
           functionDeclarations: [
             checkConsentDeclaration,
             recommendProductDeclaration,
+            computeTimingSignalsDeclaration,
           ],
         },
       ],
@@ -102,6 +120,7 @@ export class AgentOrchestrator {
 
     let finalNarration = "";
     let finalRecommendation: ToolResult<Recommendation> | null = null;
+    let finalTiming: ToolResult<TimingSignals> | null = null;
     let consentGranted = false;
 
     try {
@@ -142,6 +161,24 @@ export class AgentOrchestrator {
               dataAccessed: ["transactions", "signals"],
               consentVerified: true,
               decision: `Recommended ${res.output.product}`,
+              reasonTrace: res.reasonTrace,
+            });
+          }
+        } else if (call.name === "computeTimingSignals") {
+          if (!consentGranted) {
+            functionResponse = { error: "Consent not granted. Cannot process timing analysis." };
+          } else {
+            const res = computeTimingSignals((call.args as any).customerId as string);
+            functionResponse = res.output;
+            finalTiming = res;
+
+            logAuditEntry({
+              timestamp: new Date(),
+              customerId: this.customerId,
+              action: "computeTimingSignals",
+              dataAccessed: ["transactions", "signals"],
+              consentVerified: true,
+              decision: `Timing trigger: ${res.output.trigger ?? "none"} (${res.output.urgency})`,
               reasonTrace: res.reasonTrace,
             });
           }
@@ -190,6 +227,7 @@ export class AgentOrchestrator {
     return {
       recommendation: finalRecommendation,
       narration: finalNarration,
+      timing: finalTiming,
     };
   }
 
@@ -222,11 +260,27 @@ export class AgentOrchestrator {
           timestamp: new Date(),
         },
         narration: "We cannot access your data without consent.",
+        timing: null,
       };
     }
 
     const recRes = await recommendProductWrapper(this.customerId);
-    
+    const timingRes = computeTimingSignals(this.customerId);
+
+    const timingNarration = timingRes.output.trigger
+      ? ` (Timing: ${timingRes.output.reason})`
+      : "";
+
+    logAuditEntry({
+      timestamp: new Date(),
+      customerId: this.customerId,
+      action: "computeTimingSignals",
+      dataAccessed: ["transactions", "signals"],
+      consentVerified: true,
+      decision: `Timing trigger: ${timingRes.output.trigger ?? "none"} (${timingRes.output.urgency})`,
+      reasonTrace: timingRes.reasonTrace,
+    });
+
     logAuditEntry({
       timestamp: new Date(),
       customerId: this.customerId,
@@ -237,12 +291,13 @@ export class AgentOrchestrator {
       reasonTrace: recRes.reasonTrace,
     });
 
-    const narration = `Based on your transaction patterns, we recommend ${recRes.output.product}. ${recRes.reasonTrace.join(", ")}.`;
+    const narration = `Based on your transaction patterns, we recommend ${recRes.output.product}. ${recRes.reasonTrace.join(", ")}.${timingNarration}`;
     recRes.output.plainLanguageExplanation = narration;
 
     return {
       recommendation: recRes,
       narration,
+      timing: timingRes,
     };
   }
 }
