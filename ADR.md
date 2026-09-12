@@ -1,6 +1,6 @@
 # 📐 Architecture Decision Records (ADR) — DhanSathi
 
-> **Document purpose**: Each ADR below records a decision made for this hackathon build (theme: AI-Powered Hyper-Personalized Banking for Bharat), the alternatives considered, and the consequences accepted. Written so a coding agent or new teammate can understand *why* the code looks the way it does, not just what it does. Companion to `SOLUTION_STRATEGY.md` — read that file first for full product/feature context.
+> **Document purpose**: Each ADR below records a decision made for this build (theme: AI-Powered Hyper-Personalized Banking for Bharat), the alternatives considered, and the consequences accepted. Written so a new teammate can understand *why* the code looks the way it does, not just what it does. Start with `README.md` for what the product is and `DEMO.md` for how it is shown; this file is the reasoning underneath both.
 
 > **Constraints assumed throughout**: ~36-hour hackathon, 3 engineers, Next.js (TypeScript) full-stack, Google Gemini API.
 
