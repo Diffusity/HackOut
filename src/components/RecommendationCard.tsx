@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Recommendation, TimingSignals } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ChevronDown, Clock, ShieldOff } from "lucide-react";
+import { ChevronDown, Clock, EyeOff, ShieldOff } from "lucide-react";
 
 const PRODUCT_LABELS: Record<string, string> = {
   RD: "Recurring Deposit",
@@ -51,6 +51,7 @@ export function RecommendationCard({
 
   const suppressed = recommendation.wellnessGateStatus === "suppressed";
   const label = PRODUCT_LABELS[recommendation.product] ?? recommendation.product;
+  const degraded = recommendation.reasonTrace.find((t) => t.startsWith("confidence_reduced"));
   const suppressedFrom = recommendation.reasonTrace
     .find((t) => t.startsWith("[WELLNESS GATE SUPPRESSION]"))
     ?.match(/Original product (\w+)/)?.[1];
@@ -81,6 +82,18 @@ export function RecommendationCard({
               {suppressedFrom
                 ? `${PRODUCT_LABELS[suppressedFrom] ?? suppressedFrom} was the natural offer for this profile. It was suppressed because the customer is under financial stress, and support was substituted.`
                 : "An offer was suppressed because the customer is under financial stress."}
+            </div>
+          </div>
+        )}
+
+        {degraded && (
+          <div className="flex gap-3 rounded-md border border-dashed border-line-strong bg-surface-2 p-3">
+            <EyeOff className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="text-xs leading-relaxed">
+              <span className="font-semibold">We are working with an incomplete picture.</span>{" "}
+              {degraded.replace(/^confidence_reduced \(|\)$/g, "")}. Withholding data does not only
+              cost personalisation — without spend categories we cannot see a missed EMI, so the
+              wellness gate cannot protect this customer either.
             </div>
           </div>
         )}

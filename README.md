@@ -16,7 +16,7 @@ Every financial decision here is made by deterministic TypeScript you can read, 
 
 Most personalisation systems answer *what should we sell this customer?* That question, asked of a customer in financial difficulty, produces exactly the harm the problem statement warns about. DhanSathi asks a different one: **should we be selling to this customer at all right now?**
 
-Four things follow from that, and they are the parts worth looking at:
+Five things follow from that, and they are the parts worth looking at:
 
 ### 1. The wellness gate can cancel a sale
 
@@ -40,7 +40,15 @@ Not just *why this product* — the question a declined customer actually asks: 
 
 Ask **"why was I not offered a Home Loan?"** and get a true answer, or an honest "no single change gets you there".
 
-### 4. You can move time and watch it react
+### 4. Withholding data costs protection, and we say so
+
+Consent is per scope, and each scope removes real capability. Switch off spend categories for **Sunita** and her two missed EMIs become invisible — we cannot tell an EMI from a grocery bill — so the wellness gate never fires and she is offered an investment product instead of support.
+
+> The same data that lets a bank sell to you is the data that lets it notice you are in trouble.
+
+That is the honest shape of the privacy trade-off in lending. A customer is entitled to make it either way, but only if someone tells them what it costs. We tell them, on the card, in plain words.
+
+### 5. You can move time and watch it react
 
 Drag the **Time Machine** slider. Rolling windows, EMI due dates, festival proximity and the wellness gate all recompute. Every team claims contextual timing; this one can be tested by the person hearing the claim.
 

@@ -14,6 +14,12 @@ export interface TimingInput {
   transactions: Transaction[];
   /** Injectable clock so tests are fully deterministic */
   now: Date;
+  /**
+   * Festival timing needs to know roughly where the customer is, so it is
+   * gated on location consent (ADR-031). Defaults to allowed, so existing
+   * fixtures keep their behaviour.
+   */
+  locationAllowed?: boolean;
 }
 
 /** Approximate festival dates (year fixed) — deterministic demo calendar. */
@@ -42,7 +48,7 @@ function addUTCMonths(d: Date, months: number): Date {
 
 /** Pure rule engine — exported for deterministic testing with fixtures. */
 export function computeTimingCore(input: TimingInput): TimingSignals & { reasonTrace: string[] } {
-  const { signals, transactions, now } = input;
+  const { signals, transactions, now, locationAllowed = true } = input;
   const reasonTrace: string[] = [];
   const nowMs = now.getTime();
 
@@ -102,13 +108,17 @@ export function computeTimingCore(input: TimingInput): TimingSignals & { reasonT
     };
   }
 
-  // ---- Rule 3: festival_savings_window ----
-  const upcomingFestival = FESTIVAL_CALENDAR.find((f) => {
-    const t = new Date(Date.UTC(f.year, f.month - 1, f.day)).getTime();
-    return t >= nowMs && t - nowMs <= 14 * DAY_MS;
-  });
+  // ---- Rule 3: festival_savings_window (requires location consent) ----
+  const upcomingFestival = locationAllowed
+    ? FESTIVAL_CALENDAR.find((f) => {
+        const t = new Date(Date.UTC(f.year, f.month - 1, f.day)).getTime();
+        return t >= nowMs && t - nowMs <= 14 * DAY_MS;
+      })
+    : undefined;
   reasonTrace.push(
-    `festival_savings_window=${upcomingFestival ? `trigger (${upcomingFestival.name} in ${Math.ceil((new Date(Date.UTC(upcomingFestival.year, upcomingFestival.month - 1, upcomingFestival.day)).getTime() - nowMs) / DAY_MS)} days)` : "not_triggered"}`
+    !locationAllowed
+      ? `festival_savings_window=unavailable (location access is switched off, so we cannot place this customer in a festival calendar)`
+      : `festival_savings_window=${upcomingFestival ? `trigger (${upcomingFestival.name} in ${Math.ceil((new Date(Date.UTC(upcomingFestival.year, upcomingFestival.month - 1, upcomingFestival.day)).getTime() - nowMs) / DAY_MS)} days)` : "not_triggered"}`
   );
   if (upcomingFestival) {
     return {
@@ -219,6 +229,7 @@ export function computeTimingSignals(customerId: string, now: Date = new Date())
     signals: signalsResult.output,
     transactions: getTransactionsForCustomer(customerId),
     now,
+    locationAllowed: consentResult.output.details.location,
   });
 
   return {

@@ -1,4 +1,4 @@
-# Demo script — 4 minutes
+# Demo script — 4 to 4.5 minutes
 
 Written for whoever is presenting. Times are cumulative. The whole demo runs without an API key; nothing here depends on quota.
 
@@ -80,7 +80,23 @@ Point at the contribution bars.
 
 ---
 
-## 3:10 — Ask it something it shouldn't answer (20s)
+## 3:05 — The privacy trade-off nobody else will show (30s)
+
+Still on Sunita. In **Privacy controls**, switch off **Spend categories**.
+
+Watch the recommendation change from EMI restructuring to an investment product, and the confidence drop.
+
+> "Without category data we can't tell an EMI from a grocery bill. So her two missed EMIs are now invisible to us — the gate never fires, and she gets offered an SIP instead of help."
+
+Let that sit for a second.
+
+> "Withholding data doesn't just cost personalisation. It costs protection. The same data that lets a bank sell to you is the data that lets it notice you're in trouble. She's entitled to make that trade either way — but only if someone tells her what it costs. So we tell her, on the card, in plain words."
+
+Switch it back on. The gate closes again.
+
+---
+
+## 3:35 — Ask it something it shouldn't answer (15s)
 
 Open the chat. Type: **"who won the cricket match"**
 
@@ -90,7 +106,7 @@ Then click the **"Why EMI restructuring?"** chip and let it answer properly.
 
 ---
 
-## 3:30 — The proof layer (25s)
+## 3:50 — The proof layer (20s)
 
 Scroll to the audit ledger.
 
@@ -104,7 +120,7 @@ Then the SMS panel:
 
 ---
 
-## 3:55 — Close on the fairness tab (25s)
+## 4:10 — Close on the fairness tab (25s)
 
 Switch tabs to `/fairness`.
 
@@ -114,7 +130,7 @@ Pause.
 
 > "Income type fails at 0.65. The gate holds back offers from gig workers far more often than from salaried customers. We think that's justified — the disparity is in offers withheld, not support denied, and it falls on exactly the people worst served by badly timed credit. But we're not confident enough in that to hide the number. A product that suppressed this would be less trustworthy than one that publishes it and argues the case."
 
-> "That's the whole submission: the model card, the fairness audit, and thirty architecture decisions are all in the repo, including the one where we reversed ourselves on using ML at all."
+> "That's the whole submission: the model card, the fairness audit, and thirty-one architecture decisions are all in the repo, including the one where we reversed ourselves on using ML at all."
 
 ---
 

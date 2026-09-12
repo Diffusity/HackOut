@@ -37,6 +37,7 @@
 | 028 | [Deterministic Topic Scope Guard](#adr-028-deterministic-topic-scope-guard) | ✅ Accepted | Usability, safety |
 | 029 | [Next Best Action as a Priority Resolver](#adr-029-next-best-action-as-a-priority-resolver) | ✅ Accepted | Genuine customer benefit |
 | 030 | [Publishing the Fairness Audit, Including the Failure](#adr-030-publishing-the-fairness-audit-including-the-failure) | ✅ Accepted | Explainability, regulatory readiness |
+| 031 | [Consent Degrades Capability, It Does Not Just Hide a Card](#adr-031-consent-degrades-capability-it-does-not-just-hide-a-card) | ✅ Accepted | Compliance readiness, genuine benefit |
 
 ---
 
@@ -1206,3 +1207,38 @@ Publish it with the argument. The disparity is in offers withheld, not in access
 
 - Protected attributes are audited but never used as features.
 - The audit is a committed script, so the number can be regenerated and disputed by anyone.
+
+---
+
+## ADR-031: Consent Degrades Capability, It Does Not Just Hide a Card
+
+**Status:** Accepted · **Serves:** Compliance readiness, genuine customer benefit
+
+### Context
+
+Consent was effectively binary: withhold transaction access and the product stopped; withhold anything else and nothing observable changed. Meanwhile the privacy UI described what each scope was for. A control that states a purpose and then makes no difference when switched off is worse than no control, because it teaches the customer that the toggles are decorative.
+
+### Decision
+
+Each scope now removes real capability, and the pipeline says what it lost:
+
+- **Spend categories withheld:** we can no longer distinguish an EMI from any other debit, so `emiMissCount90d` becomes undetectable, category-derived life-stage tags are dropped, and the reason trace records why.
+- **Location withheld:** the festival timing rule cannot fire, and says so.
+- **Any scope withheld:** recommendation confidence is multiplied by 0.75 and the trace names the missing scopes. Reporting the same confidence on a profile we could only partly see would be exactly the kind of dishonesty this product exists to avoid.
+
+### The consequence worth stating plainly
+
+Withholding data does not only cost personalisation. **It costs protection.** With spend categories switched off, Sunita's two missed EMIs are invisible, the wellness gate never fires, and she is offered an investment product instead of support.
+
+That is uncomfortable, and it is true, and we show it rather than hide it. It is the honest shape of the privacy trade-off in lending: the same data that lets a bank sell to you is the data that lets it notice you are in trouble. A customer is entitled to make that trade either way, but only if someone tells them what it costs.
+
+### Alternatives considered
+
+- **Keep degradation silent:** rejected. Quietly producing a worse answer at unchanged confidence is the failure mode.
+- **Refuse to operate without every scope:** rejected. That is consent theatre — the customer has no real choice if every option but "allow everything" is a dead end.
+
+### Consequences
+
+- `Signals` carries `degradedScopes`, so every downstream tool knows what was not seen.
+- The dashboard shows an explicit notice rather than leaving the customer to infer it from a lower number.
+- The demo gains its sharpest moment: toggle one permission and watch a protection disappear.
