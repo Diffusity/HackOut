@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-config({ path: ".env" }); // Call config BEFORE other imports
+config({ path: ".env", override: true }); // force .env over stale shell env
 
 import { detectStressSignals } from "../src/lib/tools/detectStressSignals";
 import { recommendProduct } from "../src/lib/tools/recommendProduct";

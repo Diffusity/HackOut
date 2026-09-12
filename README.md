@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🪷 DhanSathi — AI-Powered Hyper-Personalized Banking for Bharat
 
-## Getting Started
+An ethical, explainable banking-recommendation app built for the HackOut hackathon
+(theme: *AI-Powered Hyper-Personalized Banking for Bharat*). Next.js + TypeScript +
+Google Gemini, with **deterministic tool pipelines** and an LLM that acts strictly as
+a **narrator, not a decision maker**.
 
-First, run the development server:
+Read `SOLUTION_STRATEGY.md` for the product strategy and `ADR.md` for every
+architecture decision (with rationale).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Core pipeline (fully deterministic — no LLM in the decision path)
+
+```
+consent check → customer signals → product recommendation → stress detection
+→ Wellness Gate (can suppress any sales push) → LLM narration → guardrails → audit log
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Persona dashboard**: Priya (salaried saver), Ramesh (gig worker), Sunita (financially stressed)
+- **Reason traces**: every recommendation ships with a named, inspectable reason trace shown in the UI and audit log
+- **Wellness Gate** (ADR-012): hard-coded suppression of sales pushes for at-risk customers — for Sunita you can watch an offer get visibly *suppressed* and replaced with support (`EMI_RESTRUCTURE`)
+- **Consent-first privacy** (ADR-014): transaction data is only processed with consent; consent-denied chats refuse to discuss transaction data
+- **Vernacular voice chat** (ADR-002/006): Web Speech API with Hinglish/English toggle
+- **Grounded chat reasoning** (ADR-021): ask *"Why this product?"* (use the chip in the chat) — the LLM explains using **only** the deterministic reason trace, verified by output guardrails, with a deterministic fallback narration if the LLM is unavailable
+- **Prompt-injection shield + output guardrails** (ADR-016), all blocks audit-logged
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Getting started
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Create a `.env` file (never committed):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+GEMINI_API_KEY=<your Google AI Studio key>
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+> Note: the deterministic pipeline, dashboard, wellness gate, and chat **fallback
+> narration all work without a valid key** — a key is only required for LLM
+> narration / empathetic-message phrasing.
+>
+> **Model & quota notes (verified live, Sep 2026):**
+> - We pin `gemini-3.5-flash` (see `src/lib/gemini.ts`). Older projects' `gemini-2.x-flash`
+>   models are retired for new API keys, and `gemini-3.6+` rejects the legacy
+>   `role: "function"` turn that `@google/generative-ai` 0.24.x sends in its
+>   function-calling loop.
+> - The free tier is ~**5 requests/minute AND ~20 requests/day per model** — a
+>   single orchestrator run (multi-turn function calling) can consume the daily
+>   budget. All LLM calls retry with backoff (`sendWithRetry`) and degrade
+>   gracefully to deterministic fallbacks on quota exhaustion, but **enable
+>   billing before the live demo** for real narration headroom.
+> - Make sure no stale `GEMINI_API_KEY` is exported in your shell/terminal
+>   session — it overrides `.env` (dotenv and Next.js don't override existing
+>   env vars).
 
-## Deploy on Vercel
+## Verification scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npx tsx scripts/verify-signals.ts        # signal extraction per persona
+npx tsx scripts/verify-stress.ts         # stress scoring + wellness gate (Sunita → suppressed)
+npx tsx scripts/verify-chat-context.ts   # chat grounding context per persona (ADR-021)
+npx tsx scripts/verify-recommendation.ts # full orchestrator end-to-end (real LLM if key valid)
+npx tsc --noEmit                         # typecheck
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Dataset
+
+Primary: scripted synthetic dataset in `src/data/` (ADR-007). A supplementary
+real-world reference (Kaggle *Bank Customer Segmentation*, 1M+ transactions) and its
+mapping plan live in `data/supplementary/README.md`.

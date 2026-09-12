@@ -1,11 +1,17 @@
-import { StressAlert, ToolResult } from "../types";
+import { StressAlert, Signals, ToolResult } from "../types";
 import { getCustomerSignals } from "./getCustomerSignals";
-import { geminiPro } from "../gemini";
+import { createChatModel, sendWithRetry } from "../gemini";
 
-export async function detectStressSignals(customerId: string): Promise<ToolResult<StressAlert>> {
-  const signalsResult = getCustomerSignals(customerId);
-  const signals = signalsResult.output;
-  
+/**
+ * Pure, deterministic stress scoring — no LLM involved (ADR-011 / ADR-015).
+ * The LLM is only used downstream to phrase the intervention empathetically.
+ */
+export function computeStressCore(signals: Signals): {
+  wellnessScore: number;
+  isAtRisk: boolean;
+  reasons: string[];
+  recommendedIntervention: string;
+} {
   const reasonTrace: string[] = [];
   let score = 100;
 
@@ -34,7 +40,7 @@ export async function detectStressSignals(customerId: string): Promise<ToolResul
 
   // Clamp score
   score = Math.max(0, Math.min(100, score));
-  
+
   const isAtRisk = score <= 50;
 
   let recommendedIntervention = "none";
@@ -46,26 +52,35 @@ export async function detectStressSignals(customerId: string): Promise<ToolResul
     recommendedIntervention = "empathetic_checkin";
   }
 
+  return { wellnessScore: score, isAtRisk, reasons: reasonTrace, recommendedIntervention };
+}
+
+export async function detectStressSignals(customerId: string): Promise<ToolResult<StressAlert>> {
+  const signalsResult = getCustomerSignals(customerId);
+  const signals = signalsResult.output;
+
+  const core = computeStressCore(signals);
+  const reasonTrace = core.reasons;
+  const { wellnessScore: score, isAtRisk, recommendedIntervention } = core;
+
   // Generate empathetic message via LLM
   let empatheticMessage = "";
   if (isAtRisk || score < 70) {
     if (process.env.GEMINI_API_KEY) {
       try {
-        const systemPrompt = `
-          You are DhanSathi, phrasing financial interventions in empathetic, non-judgmental language.
-          Frame interventions as support, not punishment.
-          The user has a wellness score of ${score}/100.
-          Reasons for concern: ${reasonTrace.join(", ")}.
-          Recommended action: ${recommendedIntervention}.
-          Write a 1-2 sentence supportive message to the user acknowledging things might be tight and offering help.
-        `;
-        const chat = geminiPro.startChat({
+        const chat = createChatModel({
+          systemInstruction: "You are DhanSathi, phrasing financial interventions in empathetic, non-judgmental language. Frame interventions as support, not punishment. Write a 1-2 sentence supportive message to the user acknowledging things might be tight and offering help.",
           generationConfig: { temperature: 0.3 }
         });
-        const res = await chat.sendMessage(systemPrompt);
+        const res = await sendWithRetry(chat,
+          `The user has a wellness score of ${score}/100.\n` +
+          `Reasons for concern: ${reasonTrace.join(", ")}.\n` +
+          `Recommended action: ${recommendedIntervention}.\n` +
+          `Write a 1-2 sentence supportive message to the user.`
+        );
         empatheticMessage = res.response.text();
       } catch (e) {
-        console.error("Failed to generate empathetic message:", e);
+        console.log("Failed to generate empathetic message — using deterministic fallback:", (e as any)?.message ?? e);
         empatheticMessage = "We noticed things have been tight lately. Would you like to explore ways to reduce your monthly burden?";
       }
     } else {

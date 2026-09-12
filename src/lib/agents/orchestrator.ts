@@ -1,4 +1,4 @@
-import { geminiFlash } from "../gemini";
+import { createChatModel, sendWithRetry } from "../gemini";
 import { checkConsent } from "../tools/checkConsent";
 import { getCustomerSignals } from "../tools/getCustomerSignals";
 import { recommendProduct } from "../tools/recommendProduct";
@@ -86,8 +86,9 @@ export class AgentOrchestrator {
       If the wellnessGateStatus is "suppressed", explicitly mention that you are offering support instead of credit because of financial stress.
     `;
 
-    const model = geminiFlash;
-    const chat = model.startChat({
+    // systemInstruction must be set at the MODEL level (see src/lib/gemini.ts):
+    // passing it to startChat() produces a 400 "Invalid value at 'system_instruction'".
+    const chat = createChatModel({
       systemInstruction,
       tools: [
         {
@@ -104,7 +105,7 @@ export class AgentOrchestrator {
     let consentGranted = false;
 
     try {
-      let response = await chat.sendMessage(`Recommend a product for customer ${this.customerId}`);
+      let response = await sendWithRetry(chat, `Recommend a product for customer ${this.customerId}`);
       let calls = response.response.functionCalls();
 
       while (calls && calls.length > 0) {
@@ -148,7 +149,7 @@ export class AgentOrchestrator {
           functionResponse = { error: `Unknown function ${call.name}` };
         }
 
-        response = await chat.sendMessage([{
+        response = await sendWithRetry(chat, [{
           functionResponse: {
             name: call.name,
             response: functionResponse,
@@ -176,7 +177,7 @@ export class AgentOrchestrator {
         }
       }
     } catch (e: any) {
-      console.error("Orchestrator error:", e);
+      console.log("Orchestrator LLM error — degrading to deterministic fallback pipeline:", e?.message ?? e);
       return this.runFallbackPipeline();
     }
 
@@ -236,7 +237,7 @@ export class AgentOrchestrator {
       reasonTrace: recRes.reasonTrace,
     });
 
-    const narration = `Fallback narration (API Key missing): We recommend ${recRes.output.product} because ${recRes.reasonTrace.join(", ")}.`;
+    const narration = `Based on your transaction patterns, we recommend ${recRes.output.product}. ${recRes.reasonTrace.join(", ")}.`;
     recRes.output.plainLanguageExplanation = narration;
 
     return {

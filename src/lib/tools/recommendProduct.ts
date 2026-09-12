@@ -16,11 +16,12 @@ export function recommendProduct(
     spendVolatility30d,
   } = signals;
 
-  if (lifeStageTags.includes("financially_stressed")) {
-    product = "EMI_RESTRUCTURE";
-    confidence = 0.95;
-    reasonTrace.push(`product=${product} (Customer flagged as financially stressed; prioritizing support over credit)`);
-  } else if (incomeType === "gig" && salaryRegularityScore === 0) {
+  // NOTE: We deliberately do NOT short-circuit on the "financially_stressed"
+  // tag here. The recommender picks the customer's *natural* product, and the
+  // Wellness Gate (wellnessGate.ts) is the single mechanism that pauses it and
+  // substitutes support (EMI_RESTRUCTURE). This keeps the gate auditable and
+  // its "suppressed" status visible in the UI (ADR-012).
+  if (incomeType === "gig" && salaryRegularityScore === 0) {
     product = "VEHICLE_LOAN";
     confidence = 0.85;
     reasonTrace.push(`product=${product} (Gig economy worker with variable income pattern; flexible vehicle financing is high-relevance)`);

@@ -102,7 +102,7 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
   if (avgWeekly > 0) {
     const stdDevWeek = Math.sqrt(weeklySpends.reduce((sum, val) => sum + Math.pow(val - avgWeekly, 2), 0) / 4);
     spendVolatility30d = stdDevWeek / avgWeekly;
-    reasonTrace.push(`spend_volatility_30d=${spendVolatility30d.toFixed(2)} (weekly spend varied significantly over last 30 days)`);
+    reasonTrace.push(`spend_volatility_30d=${spendVolatility30d.toFixed(2)} (week-to-week spend varied by ±${Math.round(spendVolatility30d * 100)}% of the average weekly spend over the last 30 days)`);
   } else {
     reasonTrace.push(`spend_volatility_30d=0.00 (no significant spend in last 30 days)`);
   }

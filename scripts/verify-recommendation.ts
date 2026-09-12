@@ -2,7 +2,7 @@ import { config } from "dotenv";
 import { AgentOrchestrator } from "../src/lib/agents/orchestrator";
 import { getAllAuditLogs } from "../src/lib/audit";
 
-config(); // Load .env for GEMINI_API_KEY
+config({ override: true });
 
 async function main() {
   const personas = ["CUST_PRIYA", "CUST_RAMESH", "CUST_SUNITA", "CUST_KAVITA"];

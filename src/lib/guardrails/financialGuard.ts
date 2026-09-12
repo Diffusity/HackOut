@@ -33,11 +33,22 @@ export function checkFinancialAccuracy(output: string, toolData?: any): Guardrai
   }
 
   const toolDataString = JSON.stringify(toolData).toLowerCase();
+  // Normalize BOTH sides symmetrically: the extracted figure has ₹/commas/spaces
+  // stripped, so the tool data must be stripped the same way — otherwise a
+  // grounded figure like ₹1,50,386 (normalized to 150386) never matches the
+  // trace text "₹1,50,386" and gets falsely flagged as hallucinated
+  // (verified live: the "Why this product?" chat was being blocked for
+  // quoting the reason trace verbatim). Digit-grouping commas are collapsed
+  // into the number; other ₹/\s occurrences become '|' boundaries so numbers
+  // from different fields can't accidentally merge into a false match.
+  const normalizedToolData = toolDataString
+    .replace(/(\d),(?=\d)/g, '$1') // Indian digit grouping: 1,50,386 → 150386
+    .replace(/[₹\s]/g, '|');
 
   for (const figure of extractedFigures) {
     // Very basic check: does the number (ignoring currency symbols and commas) exist in the tool data?
     const normalizedFigure = figure.replace(/[₹,\s%a-zA-Z]/g, '');
-    if (normalizedFigure && !toolDataString.includes(normalizedFigure)) {
+    if (normalizedFigure && !normalizedToolData.includes(normalizedFigure)) {
       return {
         safe: false,
         reason: "Hallucinated financial figure detected",

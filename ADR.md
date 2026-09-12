@@ -27,6 +27,7 @@
 | 013 | [Structured Reason Traces as Data Contract from Day 1](#adr-013-structured-reason-traces-as-data-contract-from-day-1) | ✅ Accepted | Explainability (foundational) |
 | 014 | [First-Class Consent Ledger, Not an Afterthought Slide](#adr-014-first-class-consent-ledger-not-an-afterthought-slide) | ✅ Accepted | Compliance readiness |
 | 015 | [Rule-Based Stress Detection, Not Trained ML Model](#adr-015-rule-based-stress-detection-not-trained-ml-model) | ✅ Accepted | Explainability, honest/defensible design |
+| 021 | [Grounded Chat Reasoning over Reason Traces (Explain-This-Recommendation Chat)](#adr-021-grounded-chat-reasoning-over-reason-traces-explain-this-recommendation-chat) | ✅ Accepted | Explainability, genuine benefit |
 
 ---
 
@@ -381,6 +382,8 @@ No real bank data is available or compliant to use. Public financial datasets (e
 
 **Judging impact**: Enables reliable demo across all three challenge points; supports "scalability" by keeping data layer swappable.
 
+> **Addendum (2026-09-12, supplementary proof-of-scale)**: In addition to the synthetic dataset, we reference the public **[Kaggle "Bank Customer Segmentation" dataset (1M+ real transactions from an Indian bank)](https://www.kaggle.com/datasets/shivamb/bank-customer-segmentation)** (see `data/supplementary/README.md` for the citation, licensing note, and a documented field-mapping plan from Kaggle columns → our `Signals` schema). The synthetic personas remain the *primary* demo data (deterministic, narratively scripted); the Kaggle reference is cited only to demonstrate that the pipeline's tool contracts generalize beyond hand-crafted data.
+
 ---
 
 ## ADR-008: SQLite/JSON for Data, Not Postgres/Supabase
@@ -597,6 +600,8 @@ function wellnessGateCheck(customerId: string, proposedProduct: string): "passed
 - (–) Adds one more demo beat to rehearse — worth it given the leverage
 
 **Judging impact**: **Single highest-leverage decision** for "genuine customer benefit" and "ethical safeguards." If you cut everything else, keep this.
+
+> **Amendment (2026-09-12, implementation)**: The gate now pauses **all** sales-push products (credit, investment, insurance — e.g., SIP) for at-risk customers, not only credit, and it is the *single* suppression mechanism. `recommendProduct` no longer short-circuits stressed customers to `EMI_RESTRUCTURE`; it returns the customer's *natural* product, which the gate then visibly suppresses (`wellnessGateStatus: "suppressed"`) before substituting support. This makes the gate's "suppressed" state observable in the UI and audit log for the Sunita persona, exactly as this ADR's demo intent requires (verified in `scripts/verify-stress.ts` and `scripts/verify-chat-context.ts`).
 
 ---
 
@@ -903,4 +908,42 @@ AI systems are notoriously difficult to test. Most hackathon teams rely entirely
 - (+) Catches regressions during rapid hackathon development
 - (+) Demoable artifact
 - (–) 1.5 hours of effort (worth it for the judge impression)
+
+---
+
+## ADR-021: Grounded Chat Reasoning over Reason Traces (Explain-This-Recommendation Chat)
+
+**Status**: ✅ Accepted
+**Date**: 2026-09-12
+
+### Context
+
+The vernacular chat (ADR-002/ADR-006) originally had **no access** to the recommendation pipeline, so it could not answer the most natural user question: *"Why was this product recommended to me?"* The chat's `systemInstruction` was persona-only, and the chat API knew nothing about the reason traces (ADR-013), the wellness gate (ADR-012), or the user's consent state (ADR-014).
+
+### Decision
+
+1. **Deterministic context builder** (`src/lib/tools/getRecommendationContext.ts`): a pure-TypeScript, zero-LLM function that replays the full pipeline per chat turn — `checkConsent → getCustomerSignals → recommendProduct → computeStressCore → applyWellnessGate` — and returns the recommendation, wellness score, gate status, and the merged reason trace.
+2. **Grounded system instruction**: the chat API injects this context into the model-level `systemInstruction`, with rules that the LLM is a *decision narrator, not a decision maker* (ADR-011): it may only explain the recommendation using facts present in the reason trace, and must never invent amounts, rates, or reasons.
+3. **Consent-aware grounding**: if transaction consent is denied, the grounding block instructs the LLM to refuse to discuss transaction-derived data and to point the user to Privacy Controls (ADR-014).
+4. **Output verification**: the chat reply passes through `checkOutputGuardrails` (ADR-016) with the deterministic tool output as ground truth; a flagged reply is replaced by a deterministic, trace-derived fallback narration, and the block is audit-logged.
+5. **Graceful degradation**: if the Gemini call itself fails (invalid/missing API key), the API returns the deterministic fallback narration instead of a 500 — the demo works offline.
+6. **UI affordance**: `ChatWidget` accepts the grounded recommendation and renders a *"Why <product>?"* quick chip that sends a pre-written explanation question (English/Hinglish per language toggle).
+
+### Rationale
+
+1. Completes the explainability loop: reason traces (ADR-013) are now consumable *by the user*, not just by judges reading an audit panel.
+2. Keeps ADR-011's invariant airtight — even in free-form chat, financial facts can only come from deterministic tools.
+3. The fallback narration makes the chat 100% reliable during demos even with no API key.
+
+### Consequences
+
+- (+) "Ask the chatbot why it recommended this" is a compelling live-demo beat
+- (+) Hallucination of personalized financial figures is structurally blocked, not just prompted against
+- (–) One extra deterministic computation per chat turn (negligible — no LLM cost)
+
+> **SDK notes (verified live against `@google/generative-ai` 0.24.x, Sep 2026)**:
+> 1. `systemInstruction` must be set on `getGenerativeModel()`. Passing it to `startChat()` produces `400 Bad Request: Invalid value at 'system_instruction'`. All chat models are created via `createChatModel()` in `src/lib/gemini.ts` which applies this correctly.
+> 2. **Model pin**: `gemini-2.0-flash`/`gemini-2.5-flash` are retired for API projects created Sep 2026, and `gemini-3.6+` rejects the legacy `role: "function"` turn the SDK 0.24.x function-calling loop sends (`400: Role 'function' is not supported`). We pin `gemini-3.5-flash`, the newest stable model that still accepts it (verified 200 on a functionResponse turn). `sendWithRetry()` in `src/lib/gemini.ts` absorbs free-tier 429s (~5 req/min, ~20 req/day per model) before degrading to deterministic fallbacks.
+
+
 

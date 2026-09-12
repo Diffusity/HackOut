@@ -169,7 +169,7 @@ export function Dashboard() {
           </div>
         )}
       </div>
-      <ChatWidget customerId={customerId} />
+      <ChatWidget customerId={customerId} recommendation={recData?.recommendation ?? null} />
     </div>
   );
 }

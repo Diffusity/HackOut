@@ -1,0 +1,4 @@
+# Never commit downloaded Kaggle data
+*.csv
+*.zip
+*.7z

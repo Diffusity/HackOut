@@ -1,14 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import { useVoice } from "@/hooks/useVoice";
 import { speak, stopSpeaking } from "@/lib/speech";
-import { MessageCircle, X, Send, Mic, MicOff, Sparkles, Loader2 } from "lucide-react";
+import { Recommendation } from "@/lib/types";
+import { MessageCircle, X, Send, Mic, MicOff, Sparkles, Loader2, HelpCircle } from "lucide-react";
 
 interface Message {
   role: "user" | "bot";
   content: string;
 }
 
-export function ChatWidget({ customerId }: { customerId: string }) {
+interface ChatWidgetProps {
+  customerId: string;
+  /** Grounded recommendation — enables the "Why this?" reasoning chip (ADR-021) */
+  recommendation?: Recommendation | null;
+}
+
+export function ChatWidget({ customerId, recommendation = null }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: "bot", content: "Namaste! I am DhanSathi. How can I help you today?" }
@@ -174,6 +181,20 @@ export function ChatWidget({ customerId }: { customerId: string }) {
             
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Grounded reasoning quick-actions (ADR-021) */}
+          {recommendation && (
+            <div className="px-3 pb-1 flex flex-wrap gap-2">
+              <button
+                onClick={() => handleSend(lang === "hi" ? "Ye product mujhe kyu suggest kiya? Simple language mein samjhao." : "Why was this product recommended to me? Explain simply.")}
+                disabled={isLoading}
+                className="flex items-center gap-1.5 text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full px-3 py-1.5 transition-colors disabled:opacity-50"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Why {recommendation.product.replace(/_/g, " ").toLowerCase()}?
+              </button>
+            </div>
+          )}
 
           {/* Input Area */}
           <div className="p-3 border-t border-white/10 bg-gray-900/80">
