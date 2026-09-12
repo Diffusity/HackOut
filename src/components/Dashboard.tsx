@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ProfileCard } from "./ProfileCard";
 import { SignalsCard } from "./SignalsCard";
 import { WellnessGauge } from "./WellnessGauge";
+import { RiskGauge } from "./RiskGauge";
 import { RecommendationCard } from "./RecommendationCard";
 import { AuditLogPanel } from "./AuditLogPanel";
 import { IncomeSpendChart } from "./IncomeSpendChart";
@@ -19,6 +20,7 @@ export function Dashboard() {
   const [monthlyTxns, setMonthlyTxns] = useState<any[]>([]);
   const [recData, setRecData] = useState<{ recommendation: Recommendation, narration: string } | null>(null);
   const [wellnessData, setWellnessData] = useState<any>(null);
+  const [riskData, setRiskData] = useState<any>(null);
   const [consentState, setConsentState] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,10 @@ export function Dashboard() {
         // Fetch wellness
         const wellRes = await fetch(`/api/customers/${customerId}/wellness`);
         if (wellRes.ok) setWellnessData(await wellRes.json());
+
+        // Fetch ML risk prediction (RiskNet, F26)
+        const riskRes = await fetch(`/api/customers/${customerId}/risk`);
+        if (riskRes.ok) setRiskData(await riskRes.json());
         
         // Fetch consent
         const consRes = await fetch(`/api/customers/${customerId}/consent`);
@@ -131,6 +137,7 @@ export function Dashboard() {
                 <SignalsCard signals={signals} />
               </div>
               <WellnessGauge data={wellnessData} />
+              <RiskGauge data={riskData} />
             </div>
 
             {/* Main Column: Chart & Recommendation (Span 6) */}

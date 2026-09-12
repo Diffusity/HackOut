@@ -87,3 +87,50 @@ export interface ToolResult<T = any> {
   confidence?: number;
   timestamp: Date;
 }
+
+// ---- RiskNet ML risk model (F26, ADR-022) ----
+export type RiskBand = "low" | "medium" | "high";
+
+export interface RiskFactor {
+  feature: string;
+  contribution: number; // weight_i * standardized x_i
+  description: string;
+}
+
+export interface RiskPrediction {
+  customerId: string;
+  /** P(EMI missed next month) from the from-scratch logistic regression. */
+  probability: number;
+  /** low < 0.33 <= medium < 0.66 <= high */
+  riskBand: RiskBand;
+  /** Per-prediction attributions, |contribution| descending. Sum of
+   *  contributions + bias equals the logit exactly. */
+  topFactors: RiskFactor[];
+  modelVersion: string;
+}
+
+export interface RiskModelArtifact {
+  version: string;
+  featureNames: string[];
+  featureDescriptions: Record<string, string>;
+  means: number[];
+  stds: number[];
+  weights: number[];
+  bias: number;
+  trainingMeta: {
+    generatedFromHash: string;
+    datasetRows: number;
+    positiveRows: number;
+    hyperparams: Record<string, number | string>;
+    metrics: {
+      trainAccuracy: number;
+      trainPrecision: number;
+      trainRecall: number;
+      trainAuc: number | null;
+      locoCvAccuracy: number;
+      locoCvAuc: number | null;
+      locoCvPredictions: number;
+    };
+    caveat: string;
+  };
+}

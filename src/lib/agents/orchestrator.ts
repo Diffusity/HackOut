@@ -4,9 +4,10 @@ import { getCustomerSignals } from "../tools/getCustomerSignals";
 import { recommendProduct } from "../tools/recommendProduct";
 import { detectStressSignals } from "../tools/detectStressSignals";
 import { computeTimingSignals } from "../tools/computeTimingSignals";
+import { predictRiskScore } from "../tools/predictRiskScore";
 import { applyWellnessGate } from "../tools/wellnessGate";
 import { logAuditEntry } from "../audit";
-import { Recommendation, TimingSignals, ToolResult } from "../types";
+import { Recommendation, RiskPrediction, TimingSignals, ToolResult } from "../types";
 import { FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { checkOutputGuardrails } from "../guardrails";
 
@@ -59,6 +60,19 @@ const computeTimingSignalsDeclaration: FunctionDeclaration = {
   },
 };
 
+const predictRiskScoreDeclaration: FunctionDeclaration = {
+  name: "predictRiskScore",
+  description:
+    "Advisory-only ML risk prediction (experimental, from-scratch logistic regression). Returns the probability that the customer misses an EMI next month, plus the top contributing factors. Use it ONLY to enrich the narration or to softly acknowledge concern — NEVER to make the final decision, and NEVER to sell when the risk band is high.",
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      customerId: { type: SchemaType.STRING, description: "The ID of the customer" },
+    },
+    required: ["customerId"],
+  },
+};
+
 // Wrapper for the LLM to call
 async function recommendProductWrapper(customerId: string): Promise<ToolResult<Recommendation>> {
   const signalsResult = getCustomerSignals(customerId);
@@ -95,6 +109,7 @@ export class AgentOrchestrator {
       You MUST ALWAYS call checkConsent first. If consent is denied, stop and say so.
       Then call recommendProduct. 
       Also call computeTimingSignals to learn the customer's current life-context (e.g. salary just credited, EMI due soon, festival window).
+      You MAY optionally call predictRiskScore for an advisory ML risk read. If its risk band is "high", acknowledge the stress supportively and NEVER sell; the model is advisory only and never overrides the deterministic tools.
       If timing has a trigger, weave it into your explanation naturally (e.g. "now is a good moment because your salary just came in"), using ONLY the timing reason provided.
       If the timing reason says the alert is proactive (not an offer), do NOT push a product — acknowledge the moment supportively.
       When you get the recommendation result, look at the reasonTrace. 
@@ -113,6 +128,7 @@ export class AgentOrchestrator {
             checkConsentDeclaration,
             recommendProductDeclaration,
             computeTimingSignalsDeclaration,
+            predictRiskScoreDeclaration,
           ],
         },
       ],
@@ -121,6 +137,7 @@ export class AgentOrchestrator {
     let finalNarration = "";
     let finalRecommendation: ToolResult<Recommendation> | null = null;
     let finalTiming: ToolResult<TimingSignals> | null = null;
+    let finalRisk: ToolResult<RiskPrediction> | null = null;
     let consentGranted = false;
 
     try {
@@ -179,6 +196,24 @@ export class AgentOrchestrator {
               dataAccessed: ["transactions", "signals"],
               consentVerified: true,
               decision: `Timing trigger: ${res.output.trigger ?? "none"} (${res.output.urgency})`,
+              reasonTrace: res.reasonTrace,
+            });
+          }
+        } else if (call.name === "predictRiskScore") {
+          if (!consentGranted) {
+            functionResponse = { error: "Consent not granted. Cannot run risk prediction." };
+          } else {
+            const res = predictRiskScore((call.args as any).customerId as string);
+            functionResponse = res.output;
+            finalRisk = res;
+
+            logAuditEntry({
+              timestamp: new Date(),
+              customerId: this.customerId,
+              action: "predictRiskScore",
+              dataAccessed: ["transactions", "signals"],
+              consentVerified: true,
+              decision: `ML risk: ${(res.output.probability * 100).toFixed(0)}% ${res.output.riskBand} (${res.output.modelVersion})`,
               reasonTrace: res.reasonTrace,
             });
           }
@@ -291,7 +326,24 @@ export class AgentOrchestrator {
       reasonTrace: recRes.reasonTrace,
     });
 
-    const narration = `Based on your transaction patterns, we recommend ${recRes.output.product}. ${recRes.reasonTrace.join(", ")}.${timingNarration}`;
+    // Advisory-only ML risk signal (ADR-022) — enriches narration, never decides.
+    const riskRes = predictRiskScore(this.customerId);
+    const riskNarration =
+      riskRes.output.riskBand === "high"
+        ? ` (ML risk advisory: our experimental model estimates ${(riskRes.output.probability * 100).toFixed(0)}% probability of a missed EMI next month — top driver: ${riskRes.output.topFactors[0]?.feature ?? "n/a"})`
+        : "";
+
+    logAuditEntry({
+      timestamp: new Date(),
+      customerId: this.customerId,
+      action: "predictRiskScore",
+      dataAccessed: ["transactions", "signals"],
+      consentVerified: true,
+      decision: `ML risk: ${(riskRes.output.probability * 100).toFixed(0)}% ${riskRes.output.riskBand} (${riskRes.output.modelVersion})`,
+      reasonTrace: riskRes.reasonTrace,
+    });
+
+    const narration = `Based on your transaction patterns, we recommend ${recRes.output.product}. ${recRes.reasonTrace.join(", ")}.${timingNarration}${riskNarration}`;
     recRes.output.plainLanguageExplanation = narration;
 
     return {
