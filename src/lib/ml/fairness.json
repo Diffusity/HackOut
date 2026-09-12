@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-09-12T14:13:54.164Z",
+  "populationSize": 6000,
+  "adverseImpactFloor": 0.8,
+  "attributes": [
+    {
+      "attribute": "gender",
+      "groups": [
+        {
+          "group": "gender=F",
+          "count": 2858,
+          "offerRate": 0.8314,
+          "suppressionRate": 0.1686,
+          "meanModelRisk": 0.0674,
+          "topProduct": "RD"
+        },
+        {
+          "group": "gender=M",
+          "count": 3142,
+          "offerRate": 0.8186,
+          "suppressionRate": 0.1814,
+          "meanModelRisk": 0.0697,
+          "topProduct": "RD"
+        }
+      ],
+      "ratio": 0.9846,
+      "passes": true
+    },
+    {
+      "attribute": "cityTier",
+      "groups": [
+        {
+          "group": "tier=2",
+          "count": 2139,
+          "offerRate": 0.8583,
+          "suppressionRate": 0.1417,
+          "meanModelRisk": 0.0611,
+          "topProduct": "RD"
+        },
+        {
+          "group": "tier=3",
+          "count": 2662,
+          "offerRate": 0.8129,
+          "suppressionRate": 0.1871,
+          "meanModelRisk": 0.0716,
+          "topProduct": "RD"
+        },
+        {
+          "group": "tier=4",
+          "count": 1199,
+          "offerRate": 0.7907,
+          "suppressionRate": 0.2093,
+          "meanModelRisk": 0.0756,
+          "topProduct": "RD"
+        }
+      ],
+      "ratio": 0.9212,
+      "passes": true
+    },
+    {
+      "attribute": "incomeType",
+      "groups": [
+        {
+          "group": "salaried",
+          "count": 2769,
+          "offerRate": 0.9751,
+          "suppressionRate": 0.0249,
+          "meanModelRisk": 0.0367,
+          "topProduct": "RD"
+        },
+        {
+          "group": "gig",
+          "count": 1984,
+          "offerRate": 0.6295,
+          "suppressionRate": 0.3705,
+          "meanModelRisk": 0.1081,
+          "topProduct": "RD"
+        },
+        {
+          "group": "self_employed",
+          "count": 1247,
+          "offerRate": 0.8011,
+          "suppressionRate": 0.1989,
+          "meanModelRisk": 0.0767,
+          "topProduct": "RD"
+        }
+      ],
+      "ratio": 0.6456,
+      "passes": false
+    }
+  ],
+  "notes": [
+    "Protected attributes are never model features; they exist here only to measure outcomes.",
+    "Offer rate means the customer received a product recommendation rather than being routed to support.",
+    "A low ratio on income type is expected and intended: gig and self-employed customers carry more volatile cash flow, so the wellness gate holds back more offers for them. That is the product working, not a bug — but it is exactly the kind of disparity a bank must be able to see and justify."
+  ]
+}

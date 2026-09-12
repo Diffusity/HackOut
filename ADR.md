@@ -28,6 +28,15 @@
 | 014 | [First-Class Consent Ledger, Not an Afterthought Slide](#adr-014-first-class-consent-ledger-not-an-afterthought-slide) | ✅ Accepted | Compliance readiness |
 | 015 | [Rule-Based Stress Detection, Not Trained ML Model](#adr-015-rule-based-stress-detection-not-trained-ml-model) | ✅ Accepted | Explainability, honest/defensible design |
 | 021 | [Grounded Chat Reasoning over Reason Traces (Explain-This-Recommendation Chat)](#adr-021-grounded-chat-reasoning-over-reason-traces-explain-this-recommendation-chat) | ✅ Accepted | Explainability, genuine benefit |
+| 022 | [Static Data Imports and Cookie-Backed Consent, Not Filesystem State](#adr-022-static-data-imports-and-cookie-backed-consent-not-filesystem-state) | ✅ Accepted | Scalability, demo reliability |
+| 023 | [The Time Machine, an Injectable Clock Exposed to the User](#adr-023-the-time-machine-an-injectable-clock-exposed-to-the-user) | ✅ Accepted | Innovation, verifiable claims |
+| 024 | [Deterministic Narration and Channel Independence (Bharat Mode)](#adr-024-deterministic-narration-and-channel-independence-bharat-mode) | ✅ Accepted | Usability for vernacular-first users |
+| 025 | [Hash-Chained Audit Ledger](#adr-025-hash-chained-audit-ledger) | ✅ Accepted | Compliance readiness |
+| 026 | [Counterfactual and Adverse-Action Explanations](#adr-026-counterfactual-and-adverse-action-explanations) | ✅ Accepted | Explainability, genuine benefit |
+| 027 | [Trained ML for Ranking, Deterministic Rules for Gating](#adr-027-trained-ml-for-ranking-deterministic-rules-for-gating) | ✅ Accepted (amends 015) | Innovation, explainability |
+| 028 | [Deterministic Topic Scope Guard](#adr-028-deterministic-topic-scope-guard) | ✅ Accepted | Usability, safety |
+| 029 | [Next Best Action as a Priority Resolver](#adr-029-next-best-action-as-a-priority-resolver) | ✅ Accepted | Genuine customer benefit |
+| 030 | [Publishing the Fairness Audit, Including the Failure](#adr-030-publishing-the-fairness-audit-including-the-failure) | ✅ Accepted | Explainability, regulatory readiness |
 
 ---
 
@@ -972,3 +981,228 @@ Add an optional ML‑augmented risk signal that is **merged with** the determini
 - (–) Additional 3‑4 h effort; must be clearly marked as experimental and not used for compliance decisions.
 
 ---
+
+---
+
+## ADR-022: Static Data Imports and Cookie-Backed Consent, Not Filesystem State
+
+**Status:** Accepted · **Serves:** Scalability, demo reliability
+
+### Context
+
+The app read `src/data/*.json` with `fs.readFileSync(path.join(process.cwd(), ...))`, mutated the customer array in place for consent changes, and accumulated the audit log in a module-level array. All three work locally and all three break on Vercel.
+
+Next.js traces which files a route needs by reading the code at build time. A path assembled at runtime is invisible to the tracer, so the JSON never enters the lambda bundle and production throws `ENOENT` while localhost stays green. Separately, serverless instances share no memory: a judge toggling consent and reloading can land on a different instance and watch the change disappear.
+
+### Decision
+
+- Import data statically (`import customers from "@/data/customers.json"`), so the compiler traces it.
+- Hold consent changes in a client cookie; each request rehydrates the in-process view through `initRequest()`.
+- Shorten Gemini retry backoff from 15s/30s to 2s/4s and declare `maxDuration = 60`. The old backoff outlived the function timeout, so the retry could never land.
+
+### Consequences
+
+- Data is immutable at runtime and read from the bundle, which is faster and correct under concurrency.
+- Consent survives instance changes because the authoritative copy lives with the client.
+- The audit chain remains per-instance. This is stated on `/compliance` rather than hidden.
+
+---
+
+## ADR-023: The Time Machine, an Injectable Clock Exposed to the User
+
+**Status:** Accepted · **Serves:** Innovation, verifiable claims
+
+### Context
+
+The timing engine already accepted an injectable `now` for testability. Every team at this hackathon will claim contextual timing; none can be checked in the room.
+
+### Decision
+
+Thread `now` through the entire read path (signals, stress, recommendation, timing) and expose it as a slider. `?now=<ISO>` on any API route moves the whole pipeline.
+
+### Rationale
+
+A claim the audience can falsify is worth more than a claim they must accept. Dragging the clock to two days before an EMI and watching the offer become a proactive alert is the difference between a demo and an assertion.
+
+### Consequences
+
+- Rolling windows key off the injected date rather than the last transaction, so advancing time genuinely degrades signals.
+- Default behaviour is unchanged when no clock is passed, so every existing test still holds.
+
+---
+
+## ADR-024: Deterministic Narration and Channel Independence (Bharat Mode)
+
+**Status:** Accepted · **Serves:** Usability for vernacular-first users, demo reliability
+
+### Context
+
+The Gemini free tier allows roughly 20 requests per day, and one orchestrator run can spend the lot. The previous fallback concatenated the reason trace into an unreadable string: technically grounded, humanly useless.
+
+Separately, the customers described in the problem statement often bank on a feature phone over 2G. A React dashboard is not where they live.
+
+### Decision
+
+A template narration layer grounded in the same reason trace, rendering the decision three ways: full narration, a 160-character SMS, and an IVR script, each in English and Hindi.
+
+### Rationale
+
+The demo stops depending on a quota. Rendering one decision across three channels also demonstrates that the decision layer is genuinely channel-independent rather than asserting it on an architecture slide.
+
+### Consequences
+
+- A dead API key costs polish, never correctness. The UI labels which narrator spoke.
+- SMS length is asserted in the verification script, so the constraint is enforced rather than hoped for.
+
+---
+
+## ADR-025: Hash-Chained Audit Ledger
+
+**Status:** Accepted · **Serves:** Compliance readiness
+
+### Context
+
+An audit log that can be edited proves nothing in a regulatory review.
+
+### Decision
+
+Each record carries `seq`, `prevHash` and its own SHA-256 over a canonicalised form. `verifyChain()` recomputes from genesis; the dashboard shows the verdict and the head hash.
+
+### Rationale
+
+Roughly twenty lines using `node:crypto` converts "we keep a log" into "we can prove the log is unaltered", which is the actual bar for financial record-keeping.
+
+### Consequences
+
+- Hashing uses a fixed field order, never JS property order.
+- Demo scope is in-process memory. Production appends the same records to write-once storage with unchanged logic.
+
+---
+
+## ADR-026: Counterfactual and Adverse-Action Explanations
+
+**Status:** Accepted · **Serves:** Explainability, genuine customer benefit
+
+### Context
+
+Reason traces answer "why this?". They do not answer the question a declined customer actually asks: "what would I have to change?" Lending regulators require principal reasons and a route to recourse.
+
+### Decision
+
+Because every decision function is pure, sweep one signal at a time over the real pipeline and report the nearest value that flips the outcome. `whyNot(product)` answers the inverse question.
+
+### Rationale
+
+This is a search over the actual decision function, not a post-hoc approximation, so the answer is true by construction. If the search says a 22% savings rate changes the recommendation, re-running the engine at 22% produces exactly that.
+
+### Consequences
+
+- Counterfactuals run against the gated decision, so the wellness gate shows up as the binding constraint when it is one.
+- Some results expose brittle thresholds in the rules. That is information, and we would rather see it than not.
+
+---
+
+## ADR-027: Trained ML for Ranking, Deterministic Rules for Gating
+
+**Status:** Accepted · **Amends:** ADR-015 · **Serves:** Innovation, explainability
+
+### Context
+
+ADR-015 chose rule-based stress detection and explicitly rejected a trained model on the grounds that rules are explainable and a model is not. The reasoning was sound but the conclusion was too broad: hand-tuned thresholds are explainable and also arbitrary, and the problem statement asks for an ML approach.
+
+### Decision
+
+Train a monotonic-constrained logistic regression offline, ship the weights as JSON, infer in TypeScript. The governing rule:
+
+> **The model proposes. The rules dispose.**
+
+The model may escalate a customer into protection and may reorder what is shown. It may never unlock a product the rules withheld, and it never overrules the wellness gate.
+
+Also trained: k-means behavioural segments for cohort comparison.
+
+### Rationale
+
+- **Monotonic constraints** confine every coefficient to a sign that is defensible in advance, so the model cannot learn something indefensible from noise. This is a real fair-lending technique, not decoration.
+- **Additivity** makes per-feature contributions exact, so they are safe to show a customer as the reasons for a decision.
+- **Offline training with JSON weights** costs no runtime dependency, no Python and no cold-start download, which is the only shape of ML that belongs on a free-tier serverless deploy.
+- **The asymmetry is the safety argument.** A wrong model costs a sale. It cannot cost a customer their protection.
+
+### Alternatives considered
+
+- **Gradient boosting:** better AUC, but per-feature attribution becomes approximate, trading away the property that makes the score usable in a lending decision.
+- **Model-only gating:** rejected. It puts a statistical artefact in charge of whether a vulnerable customer gets sold credit.
+- **Keeping rules only:** rejected. The thresholds were arbitrary and nothing was learned from the population.
+
+### Consequences
+
+- The threshold is chosen by an explicit cost ratio (a miss costs 10x a false alarm) subject to an intervention-capacity ceiling, not by maximising accuracy.
+- Test AUC is about 0.72, which is honest for this task. A near-perfect score would indicate label leakage.
+- CUST_SURESH emerged from the data as a customer the rules clear and the model does not, giving us the early-warning case. It was found, not planted.
+
+---
+
+## ADR-028: Deterministic Topic Scope Guard
+
+**Status:** Accepted · **Serves:** Usability, safety
+
+### Context
+
+Off-topic questions reached the LLM, whose answers then failed the output guardrail, which fell through to the canned recommendation explanation. Asking about the weather returned the previous answer verbatim, so the assistant appeared to be repeating itself.
+
+### Decision
+
+Classify scope before any LLM call. Injection attempts are refused as attacks; off-topic questions get a refusal that names the topic and suggests three things the customer can ask instead. Hinglish and Devanagari are first-class inputs.
+
+### Rationale
+
+Refusing deterministically costs no tokens, cannot be argued around, and produces a specific answer instead of a generic one. It also removes an entire class of quota waste.
+
+### Consequences
+
+- Refusals are excluded from the history sent back to the model, so a refusal cannot train the conversation to repeat itself.
+- Scope is keyword-based and will have edge cases. Erring toward refusal is the right failure direction for a banking assistant.
+
+---
+
+## ADR-029: Next Best Action as a Priority Resolver
+
+**Status:** Accepted · **Serves:** Genuine customer benefit
+
+### Context
+
+A dashboard shows everything at once. A customer needs one thing.
+
+### Decision
+
+A strict deterministic priority: wellness suppression, then model escalation, then urgent timing, then the recommendation. Protection always outranks selling.
+
+### Consequences
+
+The banner can never contradict the cards beneath it, because it is resolved from the same outputs rather than computed separately.
+
+---
+
+## ADR-030: Publishing the Fairness Audit, Including the Failure
+
+**Status:** Accepted · **Serves:** Explainability, regulatory readiness
+
+### Context
+
+The problem statement names algorithmic bias. The usual treatment is a reassuring sentence on a slide.
+
+### Decision
+
+Run the whole pipeline over the full modelled population, compute offer rates by gender, city tier and income type, and apply the four-fifths rule. Publish the result at `/fairness` whichever way it lands.
+
+### What it found
+
+Gender (0.98) and city tier (0.92) pass. **Income type fails at 0.65:** the wellness gate holds back offers from gig and self-employed customers far more often than from salaried ones.
+
+### Decision on the finding
+
+Publish it with the argument. The disparity is in offers withheld, not in access to support, and it falls on the customers most likely to be harmed by badly timed credit, so we believe it is justified. We are not confident enough in that to hide the number. A product that suppressed this is less trustworthy than one that shows it and defends it.
+
+### Consequences
+
+- Protected attributes are audited but never used as features.
+- The audit is a committed script, so the number can be regenerated and disputed by anyone.

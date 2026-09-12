@@ -1,91 +1,123 @@
-import { Recommendation } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+"use client";
 
-export function RecommendationCard({ data, loading }: { data?: { recommendation: Recommendation, narration: string }, loading: boolean }) {
-  const [expanded, setExpanded] = useState(false);
+import { useState } from "react";
+import { Recommendation, TimingSignals } from "@/lib/types";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { ChevronDown, Clock, ShieldOff } from "lucide-react";
+
+const PRODUCT_LABELS: Record<string, string> = {
+  RD: "Recurring Deposit",
+  SIP: "Systematic Investment Plan",
+  FD: "Fixed Deposit",
+  CREDIT_CARD: "Credit Card",
+  PERSONAL_LOAN: "Personal Loan",
+  VEHICLE_LOAN: "Vehicle Loan",
+  HOME_LOAN: "Home Loan",
+  HEALTH_INSURANCE: "Health Insurance",
+  EMI_RESTRUCTURE: "EMI Restructuring",
+  NONE: "No recommendation",
+};
+
+export function RecommendationCard({
+  recommendation,
+  timing,
+  narrationSource,
+  loading,
+}: {
+  recommendation: Recommendation | null;
+  timing?: TimingSignals | null;
+  narrationSource?: "llm" | "deterministic";
+  loading: boolean;
+}) {
+  const [traceOpen, setTraceOpen] = useState(false);
 
   if (loading) {
     return (
-      <Card className="border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)] animate-pulse">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            Analyzing Profile...
-          </CardTitle>
+          <CardTitle>Recommendation</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
-          <div className="h-4 bg-gray-800 rounded w-1/2"></div>
+        <CardContent className="space-y-3">
+          <div className="h-6 w-2/3 animate-pulse rounded bg-surface-2" />
+          <div className="h-3 w-full animate-pulse rounded bg-surface-2" />
+          <div className="h-3 w-5/6 animate-pulse rounded bg-surface-2" />
         </CardContent>
       </Card>
     );
   }
 
-  if (!data) return null;
+  if (!recommendation) return null;
 
-  const { recommendation, narration } = data;
+  const suppressed = recommendation.wellnessGateStatus === "suppressed";
+  const label = PRODUCT_LABELS[recommendation.product] ?? recommendation.product;
+  const suppressedFrom = recommendation.reasonTrace
+    .find((t) => t.startsWith("[WELLNESS GATE SUPPRESSION]"))
+    ?.match(/Original product (\w+)/)?.[1];
 
   return (
-    <Card className="border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.2)] bg-gradient-to-br from-gray-950 to-indigo-950/30">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            Agentic Recommendation
-          </CardTitle>
-          {recommendation.confidence > 0 && (
-            <div className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded border border-indigo-500/30">
-              Confidence: {(recommendation.confidence * 100).toFixed(0)}%
-            </div>
-          )}
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle>{suppressed ? "Support offered" : "Recommendation"}</CardTitle>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <Badge variant="muted">
+              {Math.round(recommendation.confidence * 100)}% confidence
+            </Badge>
+            <Badge variant="muted">
+              {narrationSource === "llm" ? "LLM narration" : "Template narration"}
+            </Badge>
+          </div>
         </div>
+        <div className="text-2xl font-semibold tracking-tight">{label}</div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
-        {recommendation.wellnessGateStatus === "suppressed" && (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-sm text-rose-200">
-            <span className="font-semibold block mb-1">🛡️ Wellness Gate Active</span>
-            A credit product was suppressed due to financial stress indicators. Displaying a support recommendation instead.
+        {suppressed && (
+          <div className="flex gap-3 rounded-md border border-line-strong bg-surface-2 p-3">
+            <ShieldOff className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="text-xs leading-relaxed">
+              <span className="font-semibold">Wellness gate held this sale back.</span>{" "}
+              {suppressedFrom
+                ? `${PRODUCT_LABELS[suppressedFrom] ?? suppressedFrom} was the natural offer for this profile. It was suppressed because the customer is under financial stress, and support was substituted.`
+                : "An offer was suppressed because the customer is under financial stress."}
+            </div>
           </div>
         )}
 
-        {/* The Product */}
-        <div className="bg-gray-900/50 rounded-lg p-4 border border-white/5">
-          <div className="text-sm text-gray-400 mb-1">Recommended Product</div>
-          <div className="text-2xl font-bold text-white tracking-wide">
-            {recommendation.product.replace(/_/g, " ")}
+        {timing?.trigger && (
+          <div className="flex items-start gap-2 text-xs text-fg-muted">
+            <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium text-fg">
+                {timing.trigger.replace(/_/g, " ")} ({timing.urgency})
+              </span>{" "}
+              — {timing.reason}
+            </span>
           </div>
-        </div>
+        )}
 
-        {/* The Narration */}
-        <div className="text-gray-300 leading-relaxed text-sm">
-          {narration}
-        </div>
+        <p className="text-sm leading-relaxed">{recommendation.plainLanguageExplanation}</p>
 
-        {/* Explainability Section */}
-        <div className="pt-2">
-          <button 
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors w-full p-2 -mx-2 rounded hover:bg-white/5"
+        <div className="border-t border-line pt-3">
+          <button
+            type="button"
+            onClick={() => setTraceOpen(!traceOpen)}
+            className="flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted hover:text-fg"
           >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            Why this recommendation? (Explainability Trace)
+            <span>Reason trace ({recommendation.reasonTrace.length})</span>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${traceOpen ? "rotate-180" : ""}`} />
           </button>
-          
-          {expanded && (
-            <div className="mt-3 bg-black/40 border border-white/10 rounded-md p-4 text-xs font-mono text-gray-400">
-              <div className="text-indigo-400 mb-2 font-sans font-semibold">Deterministic Reason Trace:</div>
-              <ul className="space-y-2">
-                {recommendation.reasonTrace.map((trace, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-gray-600">[{i+1}]</span>
-                    <span>{trace}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+
+          {traceOpen && (
+            <ol className="animate-fade-up mt-3 space-y-2">
+              {recommendation.reasonTrace.map((trace, i) => (
+                <li key={i} className="flex gap-2.5 text-xs leading-relaxed">
+                  <span className="tnum shrink-0 font-mono text-fg-subtle">{i + 1}</span>
+                  <span className="break-words">{trace}</span>
+                </li>
+              ))}
+            </ol>
           )}
         </div>
       </CardContent>

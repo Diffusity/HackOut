@@ -1,6 +1,6 @@
 {
   "seed": 20260912,
-  "trainedAt": "2026-09-12T14:00:43.813Z",
+  "trainedAt": "2026-09-12T14:13:17.914Z",
   "populationSize": 6000,
   "positiveRate": 0.0708,
   "trainAuc": 0.7386,
