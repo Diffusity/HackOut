@@ -147,6 +147,8 @@ Swapping in a real ledger means replacing `buildPopulation()` in `scripts/popula
 
 ## Data
 
+`/compliance` reports the database region **read from the live connection**, not hard-coded. If the project is not in an Indian region it says so plainly rather than claiming localisation it does not have.
+
 With `DATABASE_URL` set, customers, transactions, the consent ledger, the audit chain and loan offers live in Postgres. Without it, the app runs on the bundled JSON seed and says so in the header.
 
 The architecture has **exactly one async boundary**: `initRequest()` loads a snapshot, and every decision function downstream is synchronous and pure over it. That is not a style preference — the counterfactual engine sweeps the decision function hundreds of times per request, so it can never touch a database mid-search. The database is never in the path of a decision: a slow database makes the page slower, it cannot make the answer wrong.

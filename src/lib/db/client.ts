@@ -54,3 +54,64 @@ export function isDatabaseConfigured(): boolean {
 
 /** Where the data actually came from, surfaced in the UI so it is never ambiguous. */
 export type DataSource = "database" | "seed";
+
+export interface ResidencyInfo {
+  configured: boolean;
+  /** Hostname only — never the user, password or database name. */
+  host: string | null;
+  /** Cloud region, when the hostname encodes one. */
+  region: string | null;
+  /** Human-readable place, for the compliance page. */
+  location: string | null;
+  inIndia: boolean;
+}
+
+const REGION_NAMES: Record<string, string> = {
+  "ap-south-1": "Mumbai, India",
+  "ap-south-2": "Hyderabad, India",
+  "ap-southeast-1": "Singapore",
+  "ap-southeast-2": "Sydney, Australia",
+  "ap-northeast-1": "Tokyo, Japan",
+  "ap-northeast-2": "Seoul, South Korea",
+  "us-east-1": "N. Virginia, United States",
+  "us-east-2": "Ohio, United States",
+  "us-west-1": "N. California, United States",
+  "us-west-2": "Oregon, United States",
+  "eu-west-1": "Ireland",
+  "eu-west-2": "London, United Kingdom",
+  "eu-central-1": "Frankfurt, Germany",
+  "sa-east-1": "São Paulo, Brazil",
+  "ca-central-1": "Canada",
+};
+
+/**
+ * Reports where the database actually is (ADR-032).
+ *
+ * RBI data localisation is a claim worth nothing unless it can be checked, and
+ * a hard-coded "Mumbai" on the compliance page would be a lie the moment the
+ * project moved. This reads the real connection host so the page states what is
+ * true — including when that is inconvenient.
+ *
+ * Only the hostname is ever exposed. Credentials are parsed out and discarded.
+ */
+export function getResidency(): ResidencyInfo {
+  const url = process.env.DATABASE_URL;
+  if (!url) return { configured: false, host: null, region: null, location: null, inIndia: false };
+
+  try {
+    const host = new URL(url).hostname;
+    // Supabase pooler hosts encode the region: aws-0-ap-south-1.pooler.supabase.com
+    const match = host.match(/(?:aws|gcp|azure)-\d+-([a-z]{2}-[a-z]+-\d)/i);
+    const region = match ? match[1].toLowerCase() : null;
+
+    return {
+      configured: true,
+      host,
+      region,
+      location: region ? (REGION_NAMES[region] ?? region) : null,
+      inIndia: region ? region.startsWith("ap-south-") : false,
+    };
+  } catch {
+    return { configured: true, host: null, region: null, location: null, inIndia: false };
+  }
+}

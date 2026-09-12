@@ -1,11 +1,17 @@
 import { PageShell, Section, DataTable } from "@/components/PageShell";
+import { Badge } from "@/components/ui/badge";
+import { getResidency } from "@/lib/db/client";
 
 export const metadata = {
   title: "Compliance — DhanSathi",
   description: "How consent, explainability, auditability and data residency are implemented.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function CompliancePage() {
+  const residency = getResidency();
+
   return (
     <PageShell
       title="Compliance"
@@ -139,7 +145,41 @@ export default function CompliancePage() {
         </p>
       </Section>
 
-      <Section title="Data residency and minimisation">
+      <Section title="Where the data actually lives">
+        <div className="rounded-lg border border-line bg-surface-2 p-4">
+          {residency.configured ? (
+            <>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Badge variant={residency.inIndia ? "solid" : "outline"}>
+                  {residency.inIndia ? "Resident in India" : residency.location ?? "Region unknown"}
+                </Badge>
+                {residency.region && (
+                  <span className="tnum font-mono text-xs text-fg-subtle">{residency.region}</span>
+                )}
+              </div>
+              <div className="tnum break-all font-mono text-xs text-fg-muted">{residency.host}</div>
+              <p className="mt-2 text-sm leading-relaxed">
+                {residency.inIndia
+                  ? `Customer data is stored in ${residency.location}, which is what RBI data localisation requires. This is read from the live connection, not written on a slide.`
+                  : residency.location
+                    ? `Customer data is currently stored in ${residency.location}. That is outside India, so this deployment would not satisfy RBI data localisation. The region is a project setting rather than an architectural constraint — but we are not going to claim otherwise while it reads like this.`
+                    : `A database is configured, but its region cannot be determined from the hostname. We will not assert a localisation we cannot verify.`}
+              </p>
+            </>
+          ) : (
+            <>
+              <Badge variant="muted">No database configured</Badge>
+              <p className="mt-2 text-sm leading-relaxed">
+                Running on the bundled JSON seed, so no customer data is stored anywhere. Set
+                <code className="mx-1 rounded bg-surface-3 px-1.5 py-0.5">DATABASE_URL</code>
+                and this panel reports the real region of the live connection.
+              </p>
+            </>
+          )}
+        </div>
+      </Section>
+
+      <Section title="Data minimisation">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
             No customer data is sent to the language model. It receives the reason trace — derived
@@ -154,10 +194,9 @@ export default function CompliancePage() {
             data leaves the request.
           </li>
           <li>
-            RBI data localisation: the deployment is configured for the Mumbai (ap-south-1) region,
-            so this is a fact a reviewer can check against the running instance rather than a claim
-            on a slide. The only external call in the whole system is the optional narration call,
-            and the product works without it.
+            The only external call in the whole system is the optional narration call, and the
+            product works entirely without it. Where the data rests is reported above from the live
+            connection rather than asserted here.
           </li>
         </ul>
       </Section>
