@@ -40,3 +40,14 @@ export function getCustomerById(id: string): Customer | undefined {
 export function getTransactionsForCustomer(id: string): Transaction[] {
   return getTransactions().filter((t) => t.customerId === id);
 }
+
+export function updateCustomerConsent(
+  id: string,
+  consent: { transactions: boolean; location: boolean; spendCategories: boolean }
+): Customer | undefined {
+  const customer = getCustomerById(id);
+  if (customer) {
+    customer.consent = consent;
+  }
+  return customer;
+}

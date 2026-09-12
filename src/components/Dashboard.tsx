@@ -8,6 +8,7 @@ import { RecommendationCard } from "./RecommendationCard";
 import { AuditLogPanel } from "./AuditLogPanel";
 import { IncomeSpendChart } from "./IncomeSpendChart";
 import { ChatWidget } from "./ChatWidget";
+import { ConsentManager } from "./ConsentManager";
 import { Customer, Signals, AuditEntry, Recommendation } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 
@@ -18,9 +19,11 @@ export function Dashboard() {
   const [monthlyTxns, setMonthlyTxns] = useState<any[]>([]);
   const [recData, setRecData] = useState<{ recommendation: Recommendation, narration: string } | null>(null);
   const [wellnessData, setWellnessData] = useState<any>(null);
+  const [consentState, setConsentState] = useState<any>(null);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     async function fetchData() {
@@ -48,6 +51,10 @@ export function Dashboard() {
         // Fetch wellness
         const wellRes = await fetch(`/api/customers/${customerId}/wellness`);
         if (wellRes.ok) setWellnessData(await wellRes.json());
+        
+        // Fetch consent
+        const consRes = await fetch(`/api/customers/${customerId}/consent`);
+        if (consRes.ok) setConsentState(await consRes.json());
       } catch (e) {
         console.error(e);
       } finally {
@@ -73,7 +80,9 @@ export function Dashboard() {
     }
 
     fetchData();
-  }, [customerId]);
+  }, [customerId, refreshTrigger]);
+
+  const hasTransactionConsent = consentState?.transactions;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-sans p-4 md:p-8 selection:bg-indigo-500/30">
@@ -111,18 +120,45 @@ export function Dashboard() {
             {/* Left Column: Profile & Signals (Span 3) */}
             <div className="lg:col-span-3 space-y-6">
               <ProfileCard customer={customer} />
-              <SignalsCard signals={signals} />
+              <div className="relative">
+                {!hasTransactionConsent && (
+                  <div className="absolute inset-0 z-10 backdrop-blur-sm bg-black/40 rounded-xl flex items-center justify-center p-4 text-center">
+                    <span className="text-sm font-medium text-gray-300 bg-gray-900/80 px-3 py-2 rounded-lg border border-white/10">
+                      🔒 Signals restricted by privacy settings
+                    </span>
+                  </div>
+                )}
+                <SignalsCard signals={signals} />
+              </div>
               <WellnessGauge data={wellnessData} />
             </div>
 
             {/* Main Column: Chart & Recommendation (Span 6) */}
             <div className="lg:col-span-6 space-y-6">
-              <RecommendationCard data={recData!} loading={recLoading} />
-              <IncomeSpendChart data={monthlyTxns} />
+              {!hasTransactionConsent ? (
+                 <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-rose-200">
+                   <span className="font-semibold block mb-2 text-lg">🔒 Consent Required</span>
+                   We cannot generate Agentic recommendations without access to your transaction history. Please enable access in the Privacy Controls.
+                 </div>
+              ) : (
+                <RecommendationCard data={recData!} loading={recLoading} />
+              )}
+              
+              <div className="relative">
+                {!hasTransactionConsent && (
+                  <div className="absolute inset-0 z-10 backdrop-blur-[6px] bg-black/20 rounded-xl flex items-center justify-center">
+                    <span className="text-sm font-medium text-gray-300 bg-gray-900/80 px-4 py-2 rounded-lg border border-white/10">
+                      🔒 Chart hidden to protect privacy
+                    </span>
+                  </div>
+                )}
+                <IncomeSpendChart data={monthlyTxns} />
+              </div>
             </div>
 
             {/* Right Column: Audit & Compliance (Span 3) */}
             <div className="lg:col-span-3 space-y-6">
+              <ConsentManager customerId={customerId} onConsentChange={() => setRefreshTrigger(prev => prev + 1)} />
               {recLoading ? (
                 <div className="animate-pulse bg-gray-900 h-64 rounded-xl border border-white/5"></div>
               ) : (
