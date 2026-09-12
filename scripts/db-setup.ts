@@ -29,7 +29,45 @@ function connect(): postgres.Sql {
     );
     process.exit(1);
   }
-  return postgres(url, { max: 1, prepare: false, ssl: url.includes("localhost") ? false : "require", onnotice: () => {} });
+  if (url.includes("PASSWORD") || url.includes("[YOUR-PASSWORD]")) {
+    console.error("DATABASE_URL still has the PASSWORD placeholder in it.");
+    process.exit(1);
+  }
+
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    console.error("DATABASE_URL is not a valid connection URI.");
+    process.exit(1);
+  }
+
+  // The direct host is IPv6-only on Supabase and Vercel functions are IPv4, so
+  // this fails in production even when it happens to work on a dev machine.
+  if (/^db\..+\.supabase\.co$/.test(host)) {
+    const ref = host.split(".")[1];
+    console.error(
+      [
+        ``,
+        `${host} is the DIRECT connection, which Supabase serves over IPv6 only.`,
+        `Vercel functions are IPv4, so this cannot work in production.`,
+        ``,
+        `Use the pooler instead — Project Settings > Database > Connection pooling > Transaction:`,
+        `  postgresql://postgres.${ref}:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`,
+        ``,
+        `Note the username is postgres.${ref}, not plain "postgres".`,
+        ``,
+      ].join("\n")
+    );
+    process.exit(1);
+  }
+
+  return postgres(url, {
+    max: 1,
+    prepare: false,
+    ssl: url.includes("localhost") ? false : "require",
+    onnotice: () => {},
+  });
 }
 
 async function migrate(sql: postgres.Sql) {

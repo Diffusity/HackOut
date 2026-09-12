@@ -1,6 +1,6 @@
 import { PageShell, Section, DataTable } from "@/components/PageShell";
 import { Badge } from "@/components/ui/badge";
-import { getResidency } from "@/lib/db/client";
+import { getResidency, getDatabaseError } from "@/lib/db/client";
 
 export const metadata = {
   title: "Compliance — DhanSathi",
@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default function CompliancePage() {
   const residency = getResidency();
+  const dbError = getDatabaseError();
 
   return (
     <PageShell
@@ -158,6 +159,13 @@ export default function CompliancePage() {
                 )}
               </div>
               <div className="tnum break-all font-mono text-xs text-fg-muted">{residency.host}</div>
+              {dbError && (
+                <p className="mt-2 rounded-md border border-dashed border-line-strong p-3 text-xs leading-relaxed">
+                  <span className="font-semibold">A database is configured but is not answering,</span>{" "}
+                  so the app is serving the bundled seed. Last error:{" "}
+                  <span className="font-mono">{dbError}</span>
+                </p>
+              )}
               <p className="mt-2 text-sm leading-relaxed">
                 {residency.inIndia
                   ? `Customer data is stored in ${residency.location}, which is what RBI data localisation requires. This is read from the live connection, not written on a slide.`

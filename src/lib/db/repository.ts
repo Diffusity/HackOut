@@ -1,4 +1,4 @@
-import { getSql, DataSource } from "./client";
+import { getSql, recordDatabaseError, DataSource } from "./client";
 import { Customer, Transaction, AuditRecord } from "../types";
 import customersSeed from "@/data/customers.json";
 import transactionsSeed from "@/data/transactions.json";
@@ -153,7 +153,11 @@ export async function loadSnapshot(force = false): Promise<Snapshot> {
       cached = snapshot;
       return snapshot;
     } catch (e) {
-      console.error("[db] snapshot load failed, using the JSON seed:", e);
+      // Record WHY, so the UI can say more than "seed". A silent fallback is how
+      // a misconfigured connection goes unnoticed until demo day.
+      const message = e instanceof Error ? e.message : String(e);
+      recordDatabaseError(message);
+      console.error("[db] snapshot load failed, using the JSON seed:", message);
       cached = buildSeedSnapshot();
       return cached;
     } finally {

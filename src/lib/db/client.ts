@@ -17,6 +17,41 @@ import postgres from "postgres";
 
 let client: postgres.Sql | null = null;
 let initialised = false;
+let lastError: string | null = null;
+
+export function getDatabaseError(): string | null {
+  return lastError;
+}
+
+export function recordDatabaseError(message: string): void {
+  lastError = message;
+}
+
+/**
+ * Catches the mistake almost everyone makes with Supabase.
+ *
+ * `db.<ref>.supabase.co` is the DIRECT connection. Supabase moved it to
+ * IPv6-only, and Vercel's functions are IPv4, so it cannot work in production
+ * and often cannot work locally either. The symptom is silent: the query
+ * fails, we fall back to the seed, and the app looks like it is ignoring the
+ * database. Naming the problem here costs one log line and saves an hour.
+ */
+function warnIfDirectConnection(url: string): void {
+  try {
+    const host = new URL(url).hostname;
+    if (/^db\..*\.supabase\.co$/.test(host)) {
+      const ref = host.split(".")[1];
+      console.warn(
+        `[db] ${host} is the DIRECT connection, which is IPv6-only and unreachable from Vercel.\n` +
+          `[db] Use the connection pooler instead (Project Settings > Database > Connection pooling > Transaction):\n` +
+          `[db]   postgresql://postgres.${ref}:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres\n` +
+          `[db] Note the username is postgres.${ref}, not plain "postgres".`
+      );
+    }
+  } catch {
+    console.warn("[db] DATABASE_URL is not a valid URL — falling back to the JSON seed");
+  }
+}
 
 export function getSql(): postgres.Sql | null {
   if (initialised) return client;
@@ -27,6 +62,13 @@ export function getSql(): postgres.Sql | null {
     console.log("[db] DATABASE_URL not set — using the bundled JSON seed");
     return null;
   }
+  if (url.includes("PASSWORD") || url.includes("[YOUR-PASSWORD]")) {
+    lastError = "DATABASE_URL still contains the PASSWORD placeholder";
+    console.warn(`[db] ${lastError} — using the bundled JSON seed`);
+    return null;
+  }
+
+  warnIfDirectConnection(url);
 
   try {
     client = postgres(url, {
