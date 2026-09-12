@@ -16,7 +16,7 @@ Every financial decision here is made by deterministic TypeScript you can read, 
 
 Most personalisation systems answer *what should we sell this customer?* That question, asked of a customer in financial difficulty, produces exactly the harm the problem statement warns about. DhanSathi asks a different one: **should we be selling to this customer at all right now?**
 
-Five things follow from that, and they are the parts worth looking at:
+Six things follow from that, and they are the parts worth looking at:
 
 ### 1. The wellness gate can cancel a sale
 
@@ -48,7 +48,17 @@ Consent is per scope, and each scope removes real capability. Switch off spend c
 
 That is the honest shape of the privacy trade-off in lending. A customer is entitled to make it either way, but only if someone tells them what it costs. We tell them, on the card, in plain words.
 
-### 5. You can move time and watch it react
+### 5. It implements two RBI rules almost nobody implements
+
+Request a loan and you get a real **Key Facts Statement** — the document RBI made mandatory for retail term loans from 1 October 2024. Unique proposal number, itemised charges split between lender and third party, Part 2 qualitative disclosures, an amortisation schedule, and an **APR computed by internal rate of return** over the amount you actually receive.
+
+For the personal loan that is **14.5% nominal against an 18.03% APR**, because ₹5,500 of charges come out before the money reaches you — you receive ₹2,53,500 of the ₹2,59,000 sanctioned. The gap between those two numbers is the entire reason the disclosure is mandated.
+
+Accept it and a **cooling-off period** starts. Exiting is one request — principal plus proportionate APR, zero penalty, upfront fees refunded. No call centre, no retention script.
+
+And a customer the wellness gate has flagged cannot reach a Key Facts Statement at all. That refusal is enforced server-side, so it survives calling the API directly.
+
+### 6. You can move time and watch it react
 
 Drag the **Time Machine** slider. Rolling windows, EMI due dates, festival proximity and the wellness gate all recompute. Every team claims contextual timing; this one can be tested by the person hearing the claim.
 
@@ -59,6 +69,17 @@ Drag the **Time Machine** slider. Rolling windows, EMI due dates, festival proxi
 ```bash
 npm install
 npm run dev
+```
+
+That is the whole setup. **No database and no API key are required** — the app runs on a bundled seed and the header tells you which source is live.
+
+To run it on Postgres instead:
+
+```bash
+# Create a Supabase project in the Mumbai (ap-south-1) region.
+# Copy the connection-pooler URI into .env as DATABASE_URL, then:
+npm run db:seed     # creates the schema and loads the demo data
+npm run db:check    # row counts and audit-chain integrity
 ```
 
 `.env` (optional — see below):
@@ -78,7 +99,8 @@ GEMINI_API_KEY=<your Google AI Studio key>
 | `/` | Customer dashboard: signals, recommendation, counterfactuals, model contributions, SMS/IVR rendering, audit chain |
 | `/model-card` | What the model is, how it was measured, how the threshold was chosen, what it must never be used for |
 | `/fairness` | Offer rates by gender, city tier and income type, with the four-fifths rule applied — including the result that fails |
-| `/compliance` | Consent, explainability, auditability and data residency, with demo scope stated honestly |
+| `/compliance` | Consent, explainability, auditability, RBI lending disclosures and data residency |
+| `/loan/[proposal]` | The RBI Key Facts Statement for a loan offer, with the APR computation sheet and cooling-off exit |
 
 ### The four demo personas
 
@@ -113,13 +135,19 @@ Swapping in a real ledger means replacing `buildPopulation()` in `scripts/popula
 
 ---
 
+## Data
+
+With `DATABASE_URL` set, customers, transactions, the consent ledger, the audit chain and loan offers live in Postgres. Without it, the app runs on the bundled JSON seed and says so in the header.
+
+The architecture has **exactly one async boundary**: `initRequest()` loads a snapshot, and every decision function downstream is synchronous and pure over it. That is not a style preference — the counterfactual engine sweeps the decision function hundreds of times per request, so it can never touch a database mid-search. The database is never in the path of a decision: a slow database makes the page slower, it cannot make the answer wrong.
+
 ## Verification
 
-Nothing here needs an API key.
+Nothing here needs an API key or a database.
 
 ```bash
 npm run eval            # 21 safety invariants — the gate, monotonicity, tamper detection, scope
-npm run verify          # counterfactuals, ML contract, guardrails, signals, stress, timing
+npm run verify          # counterfactuals, ML, guardrails, KFS/APR, signals, stress, timing
 npx tsc --noEmit        # typecheck
 npm run build           # production build
 ```
@@ -149,7 +177,8 @@ The language model appears exactly once, at the end, with no authority.
 
 ## Known limits
 
-- Consent persists in a cookie and the audit chain in process memory; both need durable storage for production. Stated on `/compliance` rather than hidden.
+- Without `DATABASE_URL` consent falls back to a cookie and the audit chain to process memory. With it, both are durable; production would add write-once storage and revoke UPDATE/DELETE at the role level.
+- No authentication. Anyone with a proposal number can read that Key Facts Statement.
 - Six model features, no informal income or household context — significant for exactly the customers this targets.
 - No authentication, KYC, drift monitoring or appeals workflow.
 - The fairness audit flags income type at 0.65, below the four-fifths threshold. We publish it, and argue the case, on `/fairness`.

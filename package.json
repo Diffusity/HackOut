@@ -9,7 +9,7 @@
     "lint": "eslint",
     "eval": "tsx scripts/eval-suite.ts",
     "train": "tsx scripts/train-model.ts",
-    "verify": "tsx scripts/verify-counterfactuals.ts && tsx scripts/verify-ml.ts && tsx scripts/verify-guardrails.ts && tsx scripts/verify-signals.ts && tsx scripts/verify-stress.ts && tsx scripts/verify-timing.ts",
+    "verify": "tsx scripts/verify-counterfactuals.ts && tsx scripts/verify-ml.ts && tsx scripts/verify-guardrails.ts && tsx scripts/verify-kfs.ts && tsx scripts/verify-signals.ts && tsx scripts/verify-stress.ts && tsx scripts/verify-timing.ts",
     "audit:fairness": "tsx scripts/fairness-audit.ts",
     "db:migrate": "tsx scripts/db-setup.ts migrate",
     "db:seed": "tsx scripts/db-setup.ts seed",

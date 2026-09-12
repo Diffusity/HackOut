@@ -38,6 +38,8 @@
 | 029 | [Next Best Action as a Priority Resolver](#adr-029-next-best-action-as-a-priority-resolver) | ✅ Accepted | Genuine customer benefit |
 | 030 | [Publishing the Fairness Audit, Including the Failure](#adr-030-publishing-the-fairness-audit-including-the-failure) | ✅ Accepted | Explainability, regulatory readiness |
 | 031 | [Consent Degrades Capability, It Does Not Just Hide a Card](#adr-031-consent-degrades-capability-it-does-not-just-hide-a-card) | ✅ Accepted | Compliance readiness, genuine benefit |
+| 032 | [Postgres with One Async Boundary, and a Seed That Always Works](#adr-032-postgres-with-one-async-boundary-and-a-seed-that-always-works) | ✅ Accepted (supersedes 008) | Scalability, compliance readiness |
+| 033 | [Implementing the RBI Key Facts Statement and Cooling-Off Period](#adr-033-implementing-the-rbi-key-facts-statement-and-cooling-off-period) | ✅ Accepted | RBI compliance readiness, genuine benefit |
 
 ---
 
@@ -1242,3 +1244,86 @@ That is uncomfortable, and it is true, and we show it rather than hide it. It is
 - `Signals` carries `degradedScopes`, so every downstream tool knows what was not seen.
 - The dashboard shows an explicit notice rather than leaving the customer to infer it from a lower number.
 - The demo gains its sharpest moment: toggle one permission and watch a protection disappear.
+
+---
+
+## ADR-032: Postgres with One Async Boundary, and a Seed That Always Works
+
+**Status:** Accepted · **Supersedes:** ADR-008 · **Serves:** Scalability, compliance readiness
+
+### Context
+
+ADR-008 chose JSON files over a database, correctly, for a 36-hour build. Three things later made that the wrong answer.
+
+First, the audit ledger. ADR-025 gave it a hash chain, then had to admit on `/compliance` that it lived in process memory — so a serverless restart silently began a new chain at genesis. A tamper-evident log that forgets is not a tamper-evident log, and that caveat was the weakest sentence in the whole submission.
+
+Second, consent. DPDP asks what a customer had consented to *at the moment a decision was made*. A mutable field cannot answer that question; only a ledger of changes can.
+
+Third, "scalability across a bank's existing digital infrastructure" is a judging criterion, and a schema with foreign keys, indexes and an append-only audit table answers it in a way that `customers.json` never will.
+
+### Decision
+
+Postgres (Supabase, Mumbai / ap-south-1) behind a repository, with **exactly one async boundary**.
+
+`initRequest()` awaits a snapshot of customers and transactions, seeds the audit chain from the persisted head, and rehydrates consent. Everything after that — signals, the recommender, the distress model, the wellness gate, the counterfactual search — stays synchronous and pure over in-memory data.
+
+### Why the single boundary matters
+
+This is not a style preference. The counterfactual engine (ADR-026) sweeps the decision function hundreds of times per request to find the value that flips an outcome. If each of those evaluations awaited a query, the feature would be impossible and the "what would change this" panel would have to go. Loading once and deciding in memory is what keeps bank-grade explanation cheap.
+
+It also means the database is never in the path of a decision. A slow database makes the page slower; it cannot make the answer wrong.
+
+### The seed never goes away
+
+With no `DATABASE_URL` the app runs on the bundled JSON exactly as before. A judge cloning this repo with no credentials still gets the full product. The header says which source is live, so it is never ambiguous which one a reviewer is looking at.
+
+### Region
+
+Supabase lets the project region be chosen at creation. Mumbai (ap-south-1) means RBI data-localisation is a fact a judge can check rather than a claim on a slide. If the region changes, that is configuration, not architecture.
+
+### Consequences
+
+- The audit chain continues across instances: each request reads the persisted head and chains from it, and new records are flushed after the response is computed, off the critical path.
+- `ON CONFLICT (hash) DO NOTHING` makes audit writes idempotent, so a retried request cannot fork the chain.
+- Consent is append-only; the current state is the latest row per scope.
+- The snapshot is cached for 30 seconds. Customer data is read-mostly and the free tier's connection budget is finite.
+- A failed audit write is logged and retried on the next request. It can never block a decision from reaching a customer.
+
+---
+
+## ADR-033: Implementing the RBI Key Facts Statement and Cooling-Off Period
+
+**Status:** Accepted · **Serves:** Explainability and RBI compliance readiness, genuine customer benefit
+
+### Context
+
+"RBI/regulatory compliance readiness" is a judging criterion, and the usual treatment is a slide listing regulation names. Two specific, checkable obligations exist for exactly the product being built here, and almost nobody implements them:
+
+- **RBI/2024-25/18, 15 April 2024** — Key Facts Statement for Loans & Advances. Mandatory for retail and MSME term loans sanctioned on or after 1 October 2024. Requires a KFS in a language the borrower understands, carrying a unique proposal number, an APR that is the annual cost of credit *including every charge*, a computation sheet for that APR, and a full amortisation schedule. Charges not disclosed in the KFS cannot later be levied. The statement is valid for a stated window.
+- **Guidelines on Digital Lending, 2 September 2022** — a cooling-off period of not less than three days for tenors of seven days or more, during which the borrower may exit by repaying principal plus the **proportionate APR**, with no penalty.
+
+### Decision
+
+Implement both, properly, with the arithmetic verified.
+
+- **APR by internal rate of return**, solved by bisection: the monthly rate at which the net amount the borrower actually receives equals the present value of everything they repay. Upfront fees reduce the net disbursal and therefore raise the APR above the headline rate. For our personal loan that is 14.5% nominal against an **18.03% APR** — and that gap is the entire reason the regulation exists.
+- Both annualisation conventions are published (IRR × 12, and (1 + IRR)^12 − 1) with the reported one named, because a KFS that is ambiguous about its own convention is not a disclosure.
+- The full KFS: Part 1 rows 1–10, Part 2 qualitative information, the Annex B computation sheet, and the amortisation schedule, rendered as a document rather than a marketing page.
+- **Cooling-off exit as one request.** No call centre, no retention script, no penalty, upfront fees refunded.
+
+### The two decisions inside this that are ours, not the regulator's
+
+**Affordability sizes the loan, not risk appetite.** The principal is derived from what the customer can repay — instalment capped at half the observed monthly surplus and at 40% of income — and the KFS shows that arithmetic. We lend to the ceiling affordability sets, not to the ceiling the product allows.
+
+**We do not risk-price on the distress model.** Charging a higher rate to the customer the model thinks is most fragile is legal, common, and precisely the dynamic this product exists to resist. The model's role is the opposite: a high score closes the wellness gate and stops the offer entirely. Price is a flat band per product.
+
+### The gate outranks the journey
+
+A customer the wellness gate has flagged cannot reach a Key Facts Statement at all. The refusal is enforced server-side in the offer route, not by hiding a button, so it survives anyone calling the API directly. The refusal explains itself — a customer being protected should be able to see that they are being protected.
+
+### Consequences
+
+- 31 assertions in `verify-kfs.ts`, including the APR checks that matter: zero fees reproduces the nominal rate, fees push the APR strictly above it, and APR is monotonic in fees.
+- The KFS is stored as issued, in full, not as a template reference. If pricing changes tomorrow, the document this customer was shown must still be reproducible exactly.
+- An expired KFS cannot be accepted. The validity window is a promise about price, and honouring a stale one would mean the document the customer read was not the one that bound us.
+- This is a hackathon implementation of a real regulation, not legal advice. The numbers are computed honestly; a production lender would have counsel review the wording and its board fix the cooling-off period.

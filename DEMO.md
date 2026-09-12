@@ -1,4 +1,4 @@
-# Demo script — 4 to 4.5 minutes
+# Demo script — about 5 minutes
 
 Written for whoever is presenting. Times are cumulative. The whole demo runs without an API key; nothing here depends on quota.
 
@@ -80,7 +80,31 @@ Point at the contribution bars.
 
 ---
 
-## 3:05 — The privacy trade-off nobody else will show (30s)
+## 3:05 — The document nobody else will have (45s)
+
+Back on **Priya**. On the recommendation card, click **See the Key Facts Statement**.
+
+> "RBI made this document mandatory for retail term loans from October 2024. Unique proposal number, itemised charges split between us and third parties, Part 2 disclosures, full amortisation schedule."
+
+Point at the three tiles at the top. Then at the APR tile.
+
+> "The advertised rate is 14.5%. The actual annual cost of this credit is 18.03%, because ₹5,500 of charges come out before the money reaches her — she receives ₹2,53,500 of the ₹2,59,000 sanctioned. That gap is the entire reason the regulation exists, and we compute it by internal rate of return over what she actually receives, not by a formula that flatters us."
+
+Scroll to 'How this amount was decided'.
+
+> "And the loan is sized by what she can repay, not by what we could lend. Instalment capped at half her surplus and 40% of income. We also don't risk-price on the distress model — charging the most fragile customer the highest rate is legal, common, and exactly what this product exists to resist."
+
+Click **Accept these terms**, then **Cancel this loan**.
+
+> "Cooling-off. One tap, principal plus ₹128 of proportionate APR for the day she held it, zero penalty, fees refunded. No call centre, no retention script."
+
+**Then switch to Sunita and click the same button.** No statement is issued.
+
+> "The gate is checked on the server, not by hiding a button. She can't reach a loan document at all — and she's told why."
+
+---
+
+## 3:50 — The privacy trade-off nobody else will show (30s)
 
 Still on Sunita. In **Privacy controls**, switch off **Spend categories**.
 
@@ -96,7 +120,7 @@ Switch it back on. The gate closes again.
 
 ---
 
-## 3:35 — Ask it something it shouldn't answer (15s)
+## 4:20 — Ask it something it shouldn't answer (15s)
 
 Open the chat. Type: **"who won the cricket match"**
 
@@ -106,7 +130,7 @@ Then click the **"Why EMI restructuring?"** chip and let it answer properly.
 
 ---
 
-## 3:50 — The proof layer (20s)
+## 4:35 — The proof layer (20s)
 
 Scroll to the audit ledger.
 
@@ -120,7 +144,7 @@ Then the SMS panel:
 
 ---
 
-## 4:10 — Close on the fairness tab (25s)
+## 4:55 — Close on the fairness tab (25s)
 
 Switch tabs to `/fairness`.
 
@@ -130,7 +154,7 @@ Pause.
 
 > "Income type fails at 0.65. The gate holds back offers from gig workers far more often than from salaried customers. We think that's justified — the disparity is in offers withheld, not support denied, and it falls on exactly the people worst served by badly timed credit. But we're not confident enough in that to hide the number. A product that suppressed this would be less trustworthy than one that publishes it and argues the case."
 
-> "That's the whole submission: the model card, the fairness audit, and thirty-one architecture decisions are all in the repo, including the one where we reversed ourselves on using ML at all."
+> "That's the whole submission: the model card, the fairness audit, and thirty-three architecture decisions are all in the repo, including the one where we reversed ourselves on using ML at all."
 
 ---
 
