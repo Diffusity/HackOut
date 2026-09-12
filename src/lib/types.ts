@@ -40,6 +40,8 @@ export interface Signals {
   lifeStageTags: string[];
   monthlyIncome: number;
   monthlyExpense: number;
+  /** Consent scopes the customer withheld, so callers know what was NOT seen (ADR-031) */
+  degradedScopes?: string[];
 }
 
 export interface Recommendation {
@@ -58,6 +60,7 @@ export interface StressAlert {
   reasons: string[];
   recommendedIntervention: string;
   empatheticMessage: string;
+  model?: ModelVerdict;
 }
 
 export type TimingUrgency = "now" | "soon" | "scheduled";

@@ -1,7 +1,12 @@
 import { getCustomerById, getTransactionsForCustomer } from "../data";
 import { Signals, ToolResult, Transaction } from "../types";
 
-export function getCustomerSignals(customerId: string): ToolResult<Signals> {
+/**
+ * @param now Optional "as of" date (Time Machine, ADR-023). When supplied it
+ * replaces the last-transaction date as the reference point for every rolling
+ * window, so advancing the demo clock genuinely changes the signals.
+ */
+export function getCustomerSignals(customerId: string, now?: Date): ToolResult<Signals> {
   const customer = getCustomerById(customerId);
   const txns = getTransactionsForCustomer(customerId);
 
@@ -10,6 +15,18 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
   }
 
   const reasonTrace: string[] = [];
+
+  /**
+   * Consent is per scope, and withholding a scope genuinely removes capability
+   * (ADR-031). Without category data we cannot tell an EMI from a grocery bill,
+   * so EMI misses become undetectable — which degrades our ability to PROTECT
+   * this customer, not merely to sell to them. We say so in the trace rather
+   * than silently carrying on with a worse answer.
+   */
+  const categoriesAllowed = customer.consent.spendCategories;
+  const degradedScopes: string[] = [];
+  if (!categoriesAllowed) degradedScopes.push("spendCategories");
+  if (!customer.consent.location) degradedScopes.push("location");
 
   // Sort transactions chronologically
   txns.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -35,7 +52,10 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
   }
 
   const startDate = new Date(txns[0].timestamp);
-  const endDate = new Date(txns[txns.length - 1].timestamp);
+  const lastTxnDate = new Date(txns[txns.length - 1].timestamp);
+  // Reference point for all rolling windows. Defaults to the last transaction
+  // so existing behaviour/tests are unchanged when no clock is injected.
+  const endDate = now && now.getTime() > lastTxnDate.getTime() ? now : lastTxnDate;
   const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()) + 1;
   const totalMonths = Math.max(1, monthsDiff);
 
@@ -69,12 +89,17 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
   const ninetyDaysAgo = new Date(endDate);
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
-  const allEMIs = txns.filter(t => t.category === "emi");
+  // Category data is what makes an EMI recognisable as an EMI.
+  const allEMIs = categoriesAllowed ? txns.filter(t => t.category === "emi") : [];
   const oldEMIs = allEMIs.filter(t => new Date(t.timestamp) < ninetyDaysAgo);
   const recentEMIs = allEMIs.filter(t => new Date(t.timestamp) >= ninetyDaysAgo);
-  
+
   let emiMissCount90d = 0;
-  if (oldEMIs.length > 0) {
+  if (!categoriesAllowed) {
+    reasonTrace.push(
+      `emi_miss_count_90d=unavailable (spend-category access is switched off, so we cannot tell an EMI from any other debit — missed payments are invisible to us)`
+    );
+  } else if (oldEMIs.length > 0) {
     // Expected ~3 EMIs in the last 90 days if they had EMIs before
     const expectedEMIs = 3;
     emiMissCount90d = Math.max(0, expectedEMIs - recentEMIs.length);
@@ -120,7 +145,7 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
   const tags = new Set<string>();
   if (savingsRate > 0.2) tags.add("disciplined_saver");
   if (savingsRate > 0.4) tags.add("high_saver");
-  if (txns.some(t => t.category === "investment")) tags.add("active_investor");
+  if (categoriesAllowed && txns.some(t => t.category === "investment")) tags.add("active_investor");
   if (emiMissCount90d >= 2) tags.add("financially_stressed");
   if (salaryRegularityScore > 0.8) tags.add("stable_income");
   
@@ -151,6 +176,11 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
   }
 
   const lifeStageTags = Array.from(tags);
+  if (degradedScopes.length > 0) {
+    reasonTrace.push(
+      `consent_degraded=[${degradedScopes.join(", ")}] (these signals were computed without that data; confidence is reduced accordingly)`
+    );
+  }
   reasonTrace.push(`life_stage_tags=[${lifeStageTags.join(", ")}]`);
 
   return {
@@ -165,9 +195,10 @@ export function getCustomerSignals(customerId: string): ToolResult<Signals> {
       lifeStageTags,
       monthlyIncome,
       monthlyExpense,
+      degradedScopes,
     },
     reasonTrace,
-    confidence: 1.0,
+    confidence: degradedScopes.length > 0 ? 0.7 : 1.0,
     timestamp: new Date(),
   };
 }

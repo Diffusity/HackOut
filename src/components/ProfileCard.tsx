@@ -1,34 +1,62 @@
 import { Customer } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { User, MapPin, Briefcase } from "lucide-react";
+import { Badge } from "./ui/badge";
 
-export function ProfileCard({ customer }: { customer: Customer | null }) {
+interface SegmentInfo {
+  name: string;
+  savingsPercentile: number;
+  share: number;
+}
+
+export function ProfileCard({
+  customer,
+  segment,
+}: {
+  customer: Customer | null;
+  segment?: SegmentInfo | null;
+}) {
   if (!customer) return null;
+
+  const rows = [
+    { label: "Work", value: customer.segment.replace("_", " ") },
+    { label: "Location", value: `Tier ${customer.cityTier} town` },
+    { label: "Language", value: customer.preferredLanguage.toUpperCase() },
+  ];
 
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <User className="w-5 h-5 text-indigo-400" />
-          {customer.name}
-        </CardTitle>
+      <CardHeader>
+        <CardTitle>Customer</CardTitle>
+        <div className="text-lg font-semibold tracking-tight">{customer.name}</div>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-3 mt-4 text-sm text-gray-300">
-          <div className="flex items-center gap-2">
-            <Briefcase className="w-4 h-4 text-gray-500" />
-            <span className="capitalize">{customer.segment.replace("_", " ")}</span>
+      <CardContent className="space-y-3">
+        <dl className="space-y-2 text-sm">
+          {rows.map((row) => (
+            <div key={row.label} className="flex items-baseline justify-between gap-3">
+              <dt className="text-fg-subtle">{row.label}</dt>
+              <dd className="capitalize text-fg">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+
+        {segment && (
+          <div className="border-t border-line pt-3">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[11px] uppercase tracking-[0.08em] text-fg-subtle">
+                Behavioural segment
+              </span>
+              <Badge variant="muted">k-means</Badge>
+            </div>
+            <div className="text-sm font-medium">{segment.name}</div>
+            <p className="mt-1 text-xs leading-relaxed text-fg-muted">
+              Saves more than{" "}
+              <span className="tnum font-semibold text-fg">{segment.savingsPercentile}%</span> of
+              comparable customers. This segment covers{" "}
+              <span className="tnum">{Math.round(segment.share * 100)}%</span> of the modelled
+              population.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-gray-500" />
-            <span>Tier {customer.cityTier} City</span>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <span className="text-xs bg-white/5 border border-white/10 rounded px-2 py-1">
-              Language: {customer.preferredLanguage.toUpperCase()}
-            </span>
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

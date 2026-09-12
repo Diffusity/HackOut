@@ -1,72 +1,78 @@
 import { Signals } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Activity } from "lucide-react";
 import { Badge } from "./ui/badge";
+
+function Meter({ label, value, display }: { label: string; value: number; display: string }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between text-xs">
+        <span className="text-fg-muted">{label}</span>
+        <span className="tnum font-medium text-fg">{display}</span>
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-surface-3">
+        <div
+          className="h-1 rounded-full bg-accent transition-[width] duration-500"
+          style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function SignalsCard({ signals }: { signals: Signals | null }) {
   if (!signals) return null;
 
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Activity className="w-5 h-5 text-emerald-400" />
-          Extracted Signals
-        </CardTitle>
+      <CardHeader>
+        <CardTitle>Extracted signals</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4 mt-2">
-          {/* Salary Regularity */}
-          <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>Salary Regularity</span>
-              <span>{(signals.salaryRegularityScore * 100).toFixed(0)}%</span>
-            </div>
-            <div className="w-full bg-gray-800 rounded-full h-1.5">
-              <div 
-                className="bg-emerald-400 h-1.5 rounded-full" 
-                style={{ width: `${signals.salaryRegularityScore * 100}%` }}
-              ></div>
-            </div>
-          </div>
+      <CardContent className="space-y-4">
+        <Meter
+          label="Salary regularity"
+          value={signals.salaryRegularityScore}
+          display={`${(signals.salaryRegularityScore * 100).toFixed(0)}%`}
+        />
+        <Meter
+          label="Savings rate"
+          value={signals.savingsRate}
+          display={`${(signals.savingsRate * 100).toFixed(1)}%`}
+        />
+        <Meter
+          label="Spend volatility (30d)"
+          value={Math.min(1, signals.spendVolatility30d)}
+          display={`${(signals.spendVolatility30d * 100).toFixed(0)}%`}
+        />
 
-          {/* Savings Rate */}
-          <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>Savings Rate</span>
-              <span>{(signals.savingsRate * 100).toFixed(1)}%</span>
-            </div>
-            <div className="w-full bg-gray-800 rounded-full h-1.5">
-              <div 
-                className="bg-indigo-400 h-1.5 rounded-full" 
-                style={{ width: `${signals.savingsRate * 100}%` }}
-              ></div>
-            </div>
-          </div>
+        <div className="flex items-baseline justify-between border-t border-line pt-3 text-sm">
+          <span className="text-fg-muted">Missed EMIs (90 days)</span>
+          <span className="tnum font-semibold">{signals.emiMissCount90d}</span>
+        </div>
 
-          {/* EMI Miss Count */}
+        <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>Missed EMIs (90d)</span>
-              <span className={signals.emiMissCount90d > 0 ? "text-rose-400 font-bold" : ""}>
-                {signals.emiMissCount90d}
-              </span>
-            </div>
+            <div className="text-xs text-fg-subtle">Monthly in</div>
+            <div className="tnum font-medium">₹{signals.monthlyIncome.toLocaleString("en-IN")}</div>
           </div>
+          <div>
+            <div className="text-xs text-fg-subtle">Monthly out</div>
+            <div className="tnum font-medium">₹{signals.monthlyExpense.toLocaleString("en-IN")}</div>
+          </div>
+        </div>
 
-          {/* Tags */}
-          <div className="pt-2">
-            <div className="text-xs text-gray-500 mb-2">Life Stage Tags</div>
-            <div className="flex flex-wrap gap-2">
-              {signals.lifeStageTags.map(tag => (
-                <Badge key={tag} variant="secondary" className="text-[10px]">
-                  {tag.replace(/_/g, " ")}
-                </Badge>
-              ))}
-              {signals.lifeStageTags.length === 0 && (
-                <span className="text-xs text-gray-600">No tags detected</span>
-              )}
-            </div>
+        <div className="border-t border-line pt-3">
+          <div className="mb-2 text-[11px] uppercase tracking-[0.08em] text-fg-subtle">
+            Life-stage tags
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {signals.lifeStageTags.map((tag) => (
+              <Badge key={tag} variant="muted">
+                {tag.replace(/_/g, " ")}
+              </Badge>
+            ))}
+            {signals.lifeStageTags.length === 0 && (
+              <span className="text-xs text-fg-subtle">None detected</span>
+            )}
           </div>
         </div>
       </CardContent>

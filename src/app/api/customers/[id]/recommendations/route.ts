@@ -1,22 +1,75 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AgentOrchestrator } from "@/lib/agents/orchestrator";
-import { getAllAuditLogs } from "@/lib/audit";
+import { getAuditLogs, verifyChain } from "@/lib/audit";
+import { getPersistedAudit, verifyPersistedChain } from "@/lib/db/repository";
+import { initRequest, finaliseRequest } from "@/lib/requestContext";
+import { getRecommendationContext } from "@/lib/tools/getRecommendationContext";
+import { explainCounterfactuals } from "@/lib/tools/counterfactuals";
+import { computeStressCore } from "@/lib/tools/detectStressSignals";
+import { assignSegment } from "@/lib/ml/model";
+import { resolveNextBestAction } from "@/lib/nextBestAction";
+import { buildSms, buildIvr, Lang } from "@/lib/narration";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+/**
+ * One request returns the whole decision: the recommendation, why it was made,
+ * what would change it, what the model thought, and the sealed audit records.
+ * Bundling it keeps the dashboard to a single LLM-touching call, which matters
+ * on a free tier measured in requests per day.
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const p = await params;
-    const orchestrator = new AgentOrchestrator(p.id);
+    const ctx = await initRequest(request);
+    const { id } = await params;
+    const lang = (request.nextUrl.searchParams.get("lang") as Lang) ?? "en";
+
+    const orchestrator = new AgentOrchestrator(id, ctx.now);
     const result = await orchestrator.recommend();
-    
-    return NextResponse.json({
-      recommendation: result.recommendation.output,
-      rawToolResult: result.recommendation,
-      auditLogs: getAllAuditLogs().filter(log => log.customerId === p.id)
+
+    const decisionContext = getRecommendationContext(id, ctx.now);
+    const recommendation = result.recommendation.output;
+    const signals = decisionContext.signals;
+
+    const model = signals ? computeStressCore(signals).model : null;
+    const segment = signals ? assignSegment(signals) : null;
+    const counterfactuals = signals ? explainCounterfactuals(signals, recommendation.product) : [];
+
+    const nextBestAction = resolveNextBestAction({
+      recommendation,
+      timing: result.timing?.output ?? null,
+      model,
+      wellnessScore: decisionContext.wellnessScore,
     });
-  } catch (error: any) {
+
+    // Persist this request's audit records, then read the durable chain back.
+    // What the UI shows is the state of the LEDGER, not of this process.
+    await finaliseRequest();
+    const persistedAudit = ctx.source === "database" ? await getPersistedAudit(id) : [];
+    const persistedChain = ctx.source === "database" ? await verifyPersistedChain() : null;
+
+    return NextResponse.json({
+      recommendation,
+      timing: result.timing?.output ?? null,
+      narrationSource: result.narrationSource,
+      counterfactuals,
+      model,
+      segment,
+      nextBestAction,
+      channels: {
+        sms: buildSms({ recommendation, signals, lang }),
+        ivr: buildIvr({ recommendation, signals, lang }),
+      },
+      auditLogs: persistedAudit.length > 0 ? persistedAudit : getAuditLogs(id),
+      chain: persistedChain ?? verifyChain(),
+      dataSource: ctx.source,
+      asOf: ctx.now?.toISOString() ?? null,
+    });
+  } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

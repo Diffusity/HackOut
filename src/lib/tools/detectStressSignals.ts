@@ -1,6 +1,7 @@
-import { StressAlert, Signals, ToolResult } from "../types";
+import { StressAlert, Signals, ToolResult, ModelVerdict } from "../types";
 import { getCustomerSignals } from "./getCustomerSignals";
 import { createChatModel, sendWithRetry } from "../gemini";
+import { predictDistress } from "../ml/model";
 
 /**
  * Pure, deterministic stress scoring — no LLM involved (ADR-011 / ADR-015).
@@ -11,6 +12,7 @@ export function computeStressCore(signals: Signals): {
   isAtRisk: boolean;
   reasons: string[];
   recommendedIntervention: string;
+  model: ModelVerdict;
 } {
   const reasonTrace: string[] = [];
   let score = 100;
@@ -41,7 +43,36 @@ export function computeStressCore(signals: Signals): {
   // Clamp score
   score = Math.max(0, Math.min(100, score));
 
-  const isAtRisk = score <= 50;
+  let isAtRisk = score <= 50;
+
+  // ---- ML layer (ADR-027): the model proposes, the rules dispose ----
+  // The trained model runs alongside the rules and may ESCALATE a customer
+  // into protection. It is never allowed to clear a customer the rules have
+  // flagged, so a model error can only ever cost us a sale, never expose a
+  // vulnerable customer to one.
+  const prediction = predictDistress(signals);
+  const rulesAtRisk = isAtRisk;
+  let escalatedByModel = false;
+
+  if (!rulesAtRisk && prediction.escalates) {
+    isAtRisk = true;
+    escalatedByModel = true;
+    const top = prediction.contributions.filter((c) => c.contribution > 0).slice(0, 2);
+    reasonTrace.push(
+      `Model flagged elevated distress risk (${Math.round(prediction.probability * 100)}%, ` +
+        `threshold ${Math.round(prediction.threshold * 100)}%) driven by ${top.map((c) => c.label).join(" and ")}`
+    );
+  }
+
+  const model = {
+    probability: prediction.probability,
+    escalates: prediction.escalates,
+    threshold: prediction.threshold,
+    modelVersion: prediction.modelVersion,
+    contributions: prediction.contributions,
+    agreesWithRules: prediction.escalates === rulesAtRisk,
+    escalatedByModel,
+  };
 
   let recommendedIntervention = "none";
   if (score < 30) {
@@ -52,11 +83,11 @@ export function computeStressCore(signals: Signals): {
     recommendedIntervention = "empathetic_checkin";
   }
 
-  return { wellnessScore: score, isAtRisk, reasons: reasonTrace, recommendedIntervention };
+  return { wellnessScore: score, isAtRisk, reasons: reasonTrace, recommendedIntervention, model };
 }
 
-export async function detectStressSignals(customerId: string): Promise<ToolResult<StressAlert>> {
-  const signalsResult = getCustomerSignals(customerId);
+export async function detectStressSignals(customerId: string, now?: Date): Promise<ToolResult<StressAlert>> {
+  const signalsResult = getCustomerSignals(customerId, now);
   const signals = signalsResult.output;
 
   const core = computeStressCore(signals);
@@ -99,6 +130,7 @@ export async function detectStressSignals(customerId: string): Promise<ToolResul
       reasons: reasonTrace,
       recommendedIntervention,
       empatheticMessage,
+      model: core.model,
     },
     reasonTrace,
     confidence: 1.0,

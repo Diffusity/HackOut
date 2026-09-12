@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomerById } from "@/lib/data";
-import { checkInputGuardrails, checkOutputGuardrails } from "@/lib/guardrails";
+import { checkInputGuardrails, checkOutputGuardrails, buildScopeRefusal } from "@/lib/guardrails";
 import { logAuditEntry } from "@/lib/audit";
 import { getRecommendationContext } from "@/lib/tools/getRecommendationContext";
 import { createChatModel, sendWithRetry } from "@/lib/gemini";
+import { buildNarration } from "@/lib/narration";
+import { initRequest, finaliseRequest } from "@/lib/requestContext";
+import { assignSegment } from "@/lib/ml/model";
+import { computeStressCore } from "@/lib/tools/detectStressSignals";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
-    const p = await params;
-    const { customerId } = p;
+    const ctx = await initRequest(request);
+    const { customerId } = await params;
     const body = await request.json();
     const { message, language = "en", history = [] } = body;
 
@@ -20,27 +27,39 @@ export async function POST(
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    // Layer 1: Prompt Injection Shield (ADR-016) — applied BEFORE any LLM call
+    // ---- Input guardrails (ADR-016 + ADR-028) — BEFORE any LLM call ----
     const inputGuard = checkInputGuardrails(message);
     if (!inputGuard.safe) {
+      const isInjection = inputGuard.reason === "Prompt injection attempt detected";
       logAuditEntry({
         timestamp: new Date(),
         customerId,
-        action: "guardrail_blocked",
+        action: isInjection ? "guardrail_blocked" : "out_of_scope_refusal",
         dataAccessed: [],
         consentVerified: false,
-        decision: `Blocked prompt injection: ${inputGuard.reason}`,
-        reasonTrace: [`Pattern matched: ${inputGuard.flaggedContent}`],
+        decision: isInjection
+          ? `Blocked prompt injection: ${inputGuard.reason}`
+          : `Refused out-of-scope question about ${inputGuard.detectedTopic}`,
+        reasonTrace: [`Flagged content: ${inputGuard.flaggedContent ?? "n/a"}`],
       });
-      return NextResponse.json({ 
-        reply: "I'm sorry, I can only help with banking and financial queries. Please rephrase your request.",
-        language
-      });
+
+      const reply = isInjection
+        ? language === "hi"
+          ? "Yeh request main process nahi kar sakta. Kripya apne banking sawaal dobara likhein."
+          : "I can't process that request. Please rephrase your banking question."
+        : buildScopeRefusal(inputGuard, language);
+
+      // `blocked` lets the UI mark this turn visibly rather than passing a
+      // refusal off as a normal answer.
+      await finaliseRequest();
+      return NextResponse.json({ reply, language, blocked: true, blockReason: inputGuard.reason });
     }
 
-    // Deterministic grounding context (ADR-021): build the full decision
-    // context with ZERO LLM calls so the LLM can only narrate these facts.
-    const context = getRecommendationContext(customerId);
+    // Deterministic grounding context (ADR-021): the full decision context with
+    // ZERO LLM calls, so the LLM can only narrate facts we computed.
+    const context = getRecommendationContext(customerId, ctx.now);
+    const segment = context.signals ? assignSegment(context.signals) : null;
+    const modelVerdict = context.signals ? computeStressCore(context.signals).model : null;
 
     logAuditEntry({
       timestamp: new Date(),
@@ -53,10 +72,13 @@ export async function POST(
     });
 
     if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ reply: "API Key missing. Cannot process chat.", language });
+      return NextResponse.json({
+        reply: buildGroundedFallbackReply(context, language),
+        language,
+        source: "deterministic",
+      });
     }
 
-    // Grounding block — the ONLY financial facts the model may use.
     const groundingBlock = context.consentGranted && context.recommendation
       ? `
 RECOMMENDATION CONTEXT (deterministic tool output — treat as the single source of truth):
@@ -64,6 +86,8 @@ RECOMMENDATION CONTEXT (deterministic tool output — treat as the single source
 - Confidence: ${context.recommendation.confidence}
 - Wellness Gate status: ${context.gateStatus}${context.gateStatus === "suppressed" ? " (an original offer was suppressed because the customer is financially stressed — offer support, never push the product)" : ""}
 - Financial wellness score: ${context.wellnessScore}/100
+${segment ? `- Behavioural segment: ${segment.name} (their savings rate sits at the ${segment.savingsPercentile}th percentile of comparable customers)` : ""}
+${modelVerdict ? `- Model distress probability: ${Math.round(modelVerdict.probability * 100)}% (threshold ${Math.round(modelVerdict.threshold * 100)}%)${modelVerdict.escalatedByModel ? " — the model escalated this customer even though the rules cleared them" : ""}` : ""}
 - Full reason trace (explains exactly WHY this product was chosen):
 ${context.reasonTrace.map((t, i) => `  ${i + 1}. ${t}`).join("\n")}
 `
@@ -77,61 +101,62 @@ ${context.reasonTrace.map((t, i) => `  ${i + 1}. ${t}`).join("\n")}
       Their preferred language is ${customer.preferredLanguage}.
       ${groundingBlock}
       RULES:
-      1. ALWAYS respond in the requested language: ${language === 'hi' ? 'Hindi (written in Roman script / Hinglish)' : 'English'}.
+      1. ALWAYS respond in the requested language: ${language === "hi" ? "Hindi (written in Roman script / Hinglish)" : "English"}.
       2. If the user mixes Hindi and English, that is perfectly fine.
       3. Use simple, everyday financial terms. Do not use jargon.
       4. If they ask about loans or complex products, explain the terms (like EMI, Interest Rate) simply.
       5. Keep responses concise and conversational (2-3 short sentences max).
-      6. You are a decision NARRATOR, not a decision maker (ADR-011). When asked WHY a product was recommended (e.g., "why this?", "ye kyu suggest kiya?"), explain using ONLY the facts in the RECOMMENDATION CONTEXT reason trace. Never invent amounts, rates, or reasons that are not in the trace.
+      6. You are a decision NARRATOR, not a decision maker (ADR-011). When asked WHY a product was recommended, explain using ONLY the facts in the RECOMMENDATION CONTEXT reason trace. Never invent amounts, rates, or reasons that are not in the trace.
       7. If the Wellness Gate suppressed an offer, frame it positively: the system is protecting them and offering support instead.
-      8. If asked something not covered by the context, answer generally about banking concepts, but never state specific personalized financial figures that are not in the context.
+      8. You only discuss banking and personal finance. If the question drifts elsewhere, say so plainly and steer back — never answer it.
       9. FIGURE DISCIPLINE (strict — a verifier checks every number you output):
          - Quote numbers EXACTLY as they appear in the reason trace. Never round (55.7% must stay 55.7%, never "56%").
-         - Never convert trace percentages into rupee amounts. Do not guess income, salary, or savings figures — none are provided.
-         - If a fact isn't in the trace (e.g., exact salary or total savings), say "I can share the exact figures once you enable the relevant data" instead of inventing one.
+         - Never convert trace percentages into rupee amounts. Do not guess income, salary, or savings figures.
+         - If a fact isn't in the trace, say "I can share the exact figures once you enable the relevant data" instead of inventing one.
     `;
 
-    // Convert history format to Gemini's format
-    const geminiHistory = history.map((msg: any) => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }]
-    }));
+    // History is handed to startChat, not replayed turn by turn: replaying cost
+    // one API call per prior message and exhausted the free-tier quota in a
+    // three-message conversation.
+    const geminiHistory = (history as { role: string; content: string }[])
+      .filter((m) => typeof m?.content === "string" && m.content.length > 0)
+      .slice(-8)
+      .map((msg) => ({
+        role: (msg.role === "user" ? "user" : "model") as "user" | "model",
+        parts: [{ text: msg.content }],
+      }));
 
-    // systemInstruction is applied at the MODEL level (verified against
-    // @google/generative-ai 0.24.x — passing it to startChat() = 400 error).
+    // Gemini requires history to begin with a user turn.
+    while (geminiHistory.length > 0 && geminiHistory[0].role !== "user") geminiHistory.shift();
+
     const chat = createChatModel({
       systemInstruction,
-      generationConfig: {
-        temperature: 0.7, // Conversational
-      }
+      history: geminiHistory,
+      generationConfig: { temperature: 0.7 },
     });
-    // Replay prior turns, then send the new message
-    for (const turn of geminiHistory) {
-      await chat.sendMessage(turn.parts[0].text as string).catch(() => {});
-    }
 
     let result;
     try {
-      // sendWithRetry absorbs routine free-tier 429s (quota ~5 req/min) before
-      // degrading to the deterministic grounded fallback.
       result = await sendWithRetry(chat, message, 2);
     } catch (llmError: any) {
-      // LLM unavailable (invalid/missing key, or quota exhausted) — fall back to
-      // the deterministic grounded narration so the demo degrades gracefully.
       console.log("Chat LLM error, using grounded fallback:", llmError?.message ?? llmError);
-      return NextResponse.json({ reply: buildGroundedFallbackReply(context, language), language });
+      return NextResponse.json({
+        reply: buildGroundedFallbackReply(context, language),
+        language,
+        source: "deterministic",
+      });
     }
-    let reply = result.response.text();
 
-    // Layer 2+3: Output schema/PII validation + financial accuracy guard (ADR-016).
-    // The narration is verified against the deterministic tool output.
+    let reply = result.response.text();
+    let source: "llm" | "deterministic" = "llm";
+
+    // ---- Output guardrails (ADR-016): verify the narration against tool output ----
     const toolDataForGuard = context.recommendation
       ? { ...context.recommendation, reasonTrace: context.reasonTrace, wellnessScore: context.wellnessScore }
       : null;
     const outputGuard = checkOutputGuardrails(reply, toolDataForGuard);
     if (!outputGuard.safe) {
-      // Log the raw blocked reply for demo-day diagnostics.
-      console.log(`[guardrail] blocked chat reply (${outputGuard.reason}) — flagged: ${outputGuard.flaggedContent ?? "n/a"} — raw: ${reply}`);
+      console.log(`[guardrail] blocked chat reply (${outputGuard.reason}) — raw: ${reply}`);
       logAuditEntry({
         timestamp: new Date(),
         customerId,
@@ -141,12 +166,13 @@ ${context.reasonTrace.map((t, i) => `  ${i + 1}. ${t}`).join("\n")}
         decision: `Output guardrail flagged chat reply: ${outputGuard.reason}`,
         reasonTrace: [`Flagged content: ${outputGuard.flaggedContent ?? "n/a"}`],
       });
-      // Replace with a grounded deterministic reply — the demo never hallucinates.
       reply = buildGroundedFallbackReply(context, language);
+      source = "deterministic";
     }
 
-    return NextResponse.json({ reply, language });
-  } catch (error: any) {
+    await finaliseRequest();
+    return NextResponse.json({ reply, language, source });
+  } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -154,8 +180,8 @@ ${context.reasonTrace.map((t, i) => `  ${i + 1}. ${t}`).join("\n")}
 
 /**
  * Deterministic fallback narration (LLM-as-narrator safety net): if the LLM is
- * unavailable or its output is blocked by guardrails, we still answer the
- * "why was this recommended?" question from the reason trace — verbatim facts.
+ * unavailable or its output is blocked, we still answer from the reason trace
+ * with verbatim facts rather than silence.
  */
 function buildGroundedFallbackReply(
   context: ReturnType<typeof getRecommendationContext>,
@@ -171,12 +197,12 @@ function buildGroundedFallbackReply(
       ? "Maaf kijiye, mujhe abhi aapki profile ka vivaran nahi mil raha."
       : "Sorry, I don't have your profile details right now.";
   }
-  const topReasons = context.recommendation.reasonTrace
-    .filter((t) => !t.startsWith("[WELLNESS GATE SUPPRESSION]"))
-    .slice(0, 3)
-    .join("; ");
-  const gateNote = context.gateStatus === "suppressed"
-    ? " Note: an earlier offer was suppressed by our Wellness Gate because we detected financial stress — we're offering support instead."
-    : "";
-  return `We recommended ${context.recommendation.product.replace(/_/g, " ").toLowerCase()} because: ${topReasons}.${gateNote}`;
+  // The same grounded template the dashboard uses (ADR-024) — readable prose
+  // rather than a joined reason trace, so a dead quota is not visibly worse.
+  return buildNarration({
+    recommendation: context.recommendation,
+    signals: context.signals,
+    wellnessScore: context.wellnessScore,
+    lang: language === "hi" ? "hi" : "en",
+  });
 }

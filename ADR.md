@@ -1,6 +1,6 @@
 # 📐 Architecture Decision Records (ADR) — DhanSathi
 
-> **Document purpose**: Each ADR below records a decision made for this hackathon build (theme: AI-Powered Hyper-Personalized Banking for Bharat), the alternatives considered, and the consequences accepted. Written so a coding agent or new teammate can understand *why* the code looks the way it does, not just what it does. Companion to `SOLUTION_STRATEGY.md` — read that file first for full product/feature context.
+> **Document purpose**: Each ADR below records a decision made for this build (theme: AI-Powered Hyper-Personalized Banking for Bharat), the alternatives considered, and the consequences accepted. Written so a new teammate can understand *why* the code looks the way it does, not just what it does. Start with `README.md` for what the product is and `DEMO.md` for how it is shown; this file is the reasoning underneath both.
 
 > **Constraints assumed throughout**: ~36-hour hackathon, 3 engineers, Next.js (TypeScript) full-stack, Google Gemini API.
 
@@ -28,6 +28,18 @@
 | 014 | [First-Class Consent Ledger, Not an Afterthought Slide](#adr-014-first-class-consent-ledger-not-an-afterthought-slide) | ✅ Accepted | Compliance readiness |
 | 015 | [Rule-Based Stress Detection, Not Trained ML Model](#adr-015-rule-based-stress-detection-not-trained-ml-model) | ✅ Accepted | Explainability, honest/defensible design |
 | 021 | [Grounded Chat Reasoning over Reason Traces (Explain-This-Recommendation Chat)](#adr-021-grounded-chat-reasoning-over-reason-traces-explain-this-recommendation-chat) | ✅ Accepted | Explainability, genuine benefit |
+| 022 | [Static Data Imports and Cookie-Backed Consent, Not Filesystem State](#adr-022-static-data-imports-and-cookie-backed-consent-not-filesystem-state) | ✅ Accepted | Scalability, demo reliability |
+| 023 | [The Time Machine, an Injectable Clock Exposed to the User](#adr-023-the-time-machine-an-injectable-clock-exposed-to-the-user) | ✅ Accepted | Innovation, verifiable claims |
+| 024 | [Deterministic Narration and Channel Independence (Bharat Mode)](#adr-024-deterministic-narration-and-channel-independence-bharat-mode) | ✅ Accepted | Usability for vernacular-first users |
+| 025 | [Hash-Chained Audit Ledger](#adr-025-hash-chained-audit-ledger) | ✅ Accepted | Compliance readiness |
+| 026 | [Counterfactual and Adverse-Action Explanations](#adr-026-counterfactual-and-adverse-action-explanations) | ✅ Accepted | Explainability, genuine benefit |
+| 027 | [Trained ML for Ranking, Deterministic Rules for Gating](#adr-027-trained-ml-for-ranking-deterministic-rules-for-gating) | ✅ Accepted (amends 015) | Innovation, explainability |
+| 028 | [Deterministic Topic Scope Guard](#adr-028-deterministic-topic-scope-guard) | ✅ Accepted | Usability, safety |
+| 029 | [Next Best Action as a Priority Resolver](#adr-029-next-best-action-as-a-priority-resolver) | ✅ Accepted | Genuine customer benefit |
+| 030 | [Publishing the Fairness Audit, Including the Failure](#adr-030-publishing-the-fairness-audit-including-the-failure) | ✅ Accepted | Explainability, regulatory readiness |
+| 031 | [Consent Degrades Capability, It Does Not Just Hide a Card](#adr-031-consent-degrades-capability-it-does-not-just-hide-a-card) | ✅ Accepted | Compliance readiness, genuine benefit |
+| 032 | [Postgres with One Async Boundary, and a Seed That Always Works](#adr-032-postgres-with-one-async-boundary-and-a-seed-that-always-works) | ✅ Accepted (supersedes 008) | Scalability, compliance readiness |
+| 033 | [Implementing the RBI Key Facts Statement and Cooling-Off Period](#adr-033-implementing-the-rbi-key-facts-statement-and-cooling-off-period) | ✅ Accepted | RBI compliance readiness, genuine benefit |
 
 ---
 

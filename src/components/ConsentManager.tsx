@@ -1,48 +1,111 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { ShieldAlert, Database, MapPin, Receipt, Loader2, Check } from "lucide-react";
+import { Badge } from "./ui/badge";
+import { Loader2 } from "lucide-react";
 
-export function ConsentManager({ customerId, onConsentChange }: { customerId: string, onConsentChange: () => void }) {
-  const [consent, setConsent] = useState({
+type Consent = { transactions: boolean; location: boolean; spendCategories: boolean };
+
+const SCOPES: { key: keyof Consent; title: string; purpose: string; effect: string }[] = [
+  {
+    key: "transactions",
+    title: "Transaction history",
+    purpose: "To work out income, spending and savings patterns.",
+    effect: "Without it we cannot make any recommendation at all.",
+  },
+  {
+    key: "spendCategories",
+    title: "Spend categories",
+    purpose: "To tell an EMI from a grocery bill.",
+    effect: "Without it recommendations continue, with lower confidence.",
+  },
+  {
+    key: "location",
+    title: "Location",
+    purpose: "To match festival timing and local branch support.",
+    effect: "Without it timing becomes less precise.",
+  },
+];
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      className={`relative h-5 w-9 shrink-0 rounded-full border transition-colors ${
+        checked ? "border-transparent bg-accent" : "border-line-strong bg-surface-2"
+      }`}
+    >
+      <span
+        className={`absolute top-[3px] h-3 w-3 rounded-full transition-all ${
+          checked ? "left-[19px] bg-accent-fg" : "left-[3px] bg-fg-subtle"
+        }`}
+      />
+    </button>
+  );
+}
+
+/**
+ * Consent is a first-class control, not a checkbox on a signup page
+ * (ADR-014). Each scope states its purpose and what is lost by withholding it,
+ * which is what purpose limitation under the DPDP Act actually asks for, and
+ * every change is written to the audit ledger.
+ */
+export function ConsentManager({
+  customerId,
+  onConsentChange,
+}: {
+  customerId: string;
+  onConsentChange: () => void;
+}) {
+  const [consent, setConsent] = useState<Consent>({
     transactions: true,
     location: true,
-    spendCategories: true
+    spendCategories: true,
   });
-  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
-  // Master toggle controls everything
-  const allEnabled = consent.transactions && consent.location && consent.spendCategories;
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchConsent() {
       setLoading(true);
       try {
         const res = await fetch(`/api/customers/${customerId}/consent`);
-        if (res.ok) {
-          const data = await res.json();
-          setConsent(data);
-        }
+        if (res.ok && !cancelled) setConsent(await res.json());
       } catch (e) {
         console.error(e);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     fetchConsent();
+    return () => {
+      cancelled = true;
+    };
   }, [customerId]);
 
-  const updateConsent = async (newConsent: typeof consent) => {
-    setConsent(newConsent);
+  const update = async (next: Consent) => {
+    setConsent(next);
     setSaving(true);
     try {
       await fetch(`/api/customers/${customerId}/consent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consent: newConsent })
+        body: JSON.stringify({ consent: next }),
       });
-      // Trigger dashboard reload
       onConsentChange();
     } catch (e) {
       console.error(e);
@@ -51,96 +114,64 @@ export function ConsentManager({ customerId, onConsentChange }: { customerId: st
     }
   };
 
-  const handleToggleAll = () => {
-    const newVal = !allEnabled;
-    updateConsent({
-      transactions: newVal,
-      location: newVal,
-      spendCategories: newVal
-    });
-  };
+  const grantedCount = Object.values(consent).filter(Boolean).length;
 
   if (loading) {
     return (
-      <Card className="border-indigo-900/50 bg-indigo-950/10">
-        <CardContent className="p-6 flex justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+      <Card>
+        <CardContent className="flex justify-center py-10">
+          <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-indigo-900/50 bg-gray-950 shadow-[0_0_15px_rgba(99,102,241,0.05)]">
-      <CardHeader className="pb-3 border-b border-white/5 bg-gray-900/40">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-sm flex items-center gap-2 text-indigo-300">
-            <ShieldAlert className="w-4 h-4" />
-            Privacy Controls (DPDP Act)
-          </CardTitle>
-          {saving && <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />}
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Privacy controls</CardTitle>
+          {saving ? (
+            <Loader2 className="h-3 w-3 animate-spin text-fg-subtle" />
+          ) : (
+            <Badge variant="muted">{grantedCount}/3 granted</Badge>
+          )}
         </div>
+        <p className="text-xs leading-relaxed text-fg-muted">
+          Each permission is separate, states its purpose, and can be withdrawn at any time. Every
+          change is written to the audit ledger.
+        </p>
       </CardHeader>
-      <CardContent className="pt-4 space-y-4">
-        
-        {/* Master Toggle */}
-        <div className="flex items-center justify-between p-3 bg-gray-900/80 rounded-lg border border-white/5">
-          <div>
-            <div className="font-semibold text-sm text-gray-200">Allow AI Data Analysis</div>
-            <div className="text-xs text-gray-500">Enable Agentic features & personalized recommendations.</div>
-          </div>
-          <button 
-            onClick={handleToggleAll}
-            className={`w-12 h-6 rounded-full transition-colors relative ${allEnabled ? 'bg-indigo-500' : 'bg-gray-700'}`}
-          >
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${allEnabled ? 'left-7' : 'left-1'}`}></div>
-          </button>
-        </div>
 
-        {/* Sub Toggles */}
-        <div className="space-y-3 pl-2 border-l-2 border-gray-800 ml-2">
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-300">
-              <Database className="w-4 h-4 text-gray-500" />
-              <span>Transaction History</span>
+      <CardContent className="space-y-3">
+        {SCOPES.map((scope) => (
+          <div key={scope.key} className="rounded-md border border-line bg-surface-2 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">{scope.title}</div>
+                <p className="mt-0.5 text-xs text-fg-muted">{scope.purpose}</p>
+              </div>
+              <Toggle
+                checked={consent[scope.key]}
+                onChange={() => update({ ...consent, [scope.key]: !consent[scope.key] })}
+                label={`Allow ${scope.title}`}
+              />
             </div>
-            <button 
-              onClick={() => updateConsent({ ...consent, transactions: !consent.transactions })}
-              className={`w-8 h-4 rounded-full transition-colors relative ${consent.transactions ? 'bg-emerald-500/80' : 'bg-gray-800'}`}
-            >
-              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${consent.transactions ? 'left-4' : 'left-0.5'}`}></div>
-            </button>
+            {!consent[scope.key] && (
+              <p className="animate-fade-up mt-2 border-t border-line pt-2 text-xs text-fg-muted">
+                {scope.effect}
+              </p>
+            )}
           </div>
+        ))}
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-300">
-              <Receipt className="w-4 h-4 text-gray-500" />
-              <span>Spend Categories</span>
-            </div>
-            <button 
-              onClick={() => updateConsent({ ...consent, spendCategories: !consent.spendCategories })}
-              className={`w-8 h-4 rounded-full transition-colors relative ${consent.spendCategories ? 'bg-emerald-500/80' : 'bg-gray-800'}`}
-            >
-              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${consent.spendCategories ? 'left-4' : 'left-0.5'}`}></div>
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-300">
-              <MapPin className="w-4 h-4 text-gray-500" />
-              <span>Location Data</span>
-            </div>
-            <button 
-              onClick={() => updateConsent({ ...consent, location: !consent.location })}
-              className={`w-8 h-4 rounded-full transition-colors relative ${consent.location ? 'bg-emerald-500/80' : 'bg-gray-800'}`}
-            >
-              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${consent.location ? 'left-4' : 'left-0.5'}`}></div>
-            </button>
-          </div>
-
-        </div>
-
+        <button
+          type="button"
+          onClick={() => update({ transactions: false, location: false, spendCategories: false })}
+          className="w-full rounded-md border border-line px-3 py-2 text-xs text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        >
+          Withdraw all consent
+        </button>
       </CardContent>
     </Card>
   );

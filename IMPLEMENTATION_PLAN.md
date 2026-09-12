@@ -104,7 +104,7 @@
 ### Design
 - New file: `src/lib/tools/detectAnomalies.ts`
   - Signature: `detectAnomalies(customerId: string): ToolResult<AnomalyReport>`
-  - 5 deterministic rules (per SOLUTION_STRATEGY §20):
+  - 5 deterministic rules:
     1. `unusual_merchant` — first-ever merchant + amount > 2× customer's average txn
     2. `large_withdrawal` — single ATM debit > 50% of monthly income
     3. `frequency_spike` — daily txn count > 3× customer's normal daily count
@@ -497,6 +497,8 @@
 ---
 
 ## 15. Status Tracking
+
+> **Phase 3 (Sep 12, 2026)** superseded parts of this plan. The table below is the current state; features not in the original F12-F25 list are recorded in ADR-022 through ADR-031.
 
 | # | Feature | Status | Evidence |
 |---|---------|--------|----------|

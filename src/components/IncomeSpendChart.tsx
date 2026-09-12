@@ -1,66 +1,106 @@
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BarChart3 } from "lucide-react";
+"use client";
 
-export function IncomeSpendChart({ data }: { data: any[] }) {
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+
+interface MonthlyPoint {
+  month: string;
+  credits: number;
+  debits: number;
+}
+
+/**
+ * Money in and money out. The palette is neutral, so the two series are told
+ * apart by fill rather than hue: income is the solid area, spending the
+ * hatched one. That survives greyscale printing and colour-blind viewers.
+ */
+export function IncomeSpendChart({ data }: { data: MonthlyPoint[] }) {
   if (!data || data.length === 0) return null;
 
   return (
-    <Card className="col-span-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-indigo-400" />
-          Income & Spend Overview (Last 6 Months)
-        </CardTitle>
+    <Card>
+      <CardHeader>
+        <CardTitle>Money in and out</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-64 w-full mt-4">
+        <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={data}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
+            <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorCredits" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                <linearGradient id="fillIncome" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--fg)" stopOpacity={0.22} />
+                  <stop offset="100%" stopColor="var(--fg)" stopOpacity={0.02} />
                 </linearGradient>
-                <linearGradient id="colorDebits" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                </linearGradient>
+                <pattern
+                  id="fillSpend"
+                  patternUnits="userSpaceOnUse"
+                  width="6"
+                  height="6"
+                  patternTransform="rotate(45)"
+                >
+                  <line x1="0" y1="0" x2="0" y2="6" stroke="var(--fg-subtle)" strokeWidth="1.5" />
+                </pattern>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-              <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis 
-                stroke="#9ca3af" 
-                fontSize={12} 
-                tickLine={false} 
+
+              <CartesianGrid stroke="var(--grid)" vertical={false} />
+              <XAxis
+                dataKey="month"
+                stroke="var(--fg-subtle)"
+                fontSize={11}
+                tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `₹${(value/1000).toFixed(0)}k`}
               />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px' }}
-                itemStyle={{ color: '#e5e7eb' }}
-                formatter={(value: any) => [`₹${value}`, undefined]}
+              <YAxis
+                stroke="var(--fg-subtle)"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value: number) => `₹${(value / 1000).toFixed(0)}k`}
               />
-              <Area 
-                type="monotone" 
-                dataKey="credits" 
+              <Tooltip
+                contentStyle={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  color: "var(--fg)",
+                }}
+                labelStyle={{ color: "var(--fg-muted)" }}
+                formatter={(value: any, name: any) => [
+                  `₹${Number(value).toLocaleString("en-IN")}`,
+                  name,
+                ]}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: "11px", color: "var(--fg-muted)" }}
+                iconType="plainline"
+              />
+              <Area
+                type="monotone"
+                dataKey="credits"
                 name="Income"
-                stroke="#10b981" 
+                stroke="var(--fg)"
                 strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorCredits)" 
+                fill="url(#fillIncome)"
               />
-              <Area 
-                type="monotone" 
-                dataKey="debits" 
-                name="Spend"
-                stroke="#f43f5e" 
-                strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorDebits)" 
+              <Area
+                type="monotone"
+                dataKey="debits"
+                name="Spending"
+                stroke="var(--fg-subtle)"
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                fill="url(#fillSpend)"
+                fillOpacity={0.35}
               />
             </AreaChart>
           </ResponsiveContainer>

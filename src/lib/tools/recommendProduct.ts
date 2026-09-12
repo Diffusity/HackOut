@@ -55,6 +55,16 @@ export function recommendProduct(
     reasonTrace.push(`product=${product} (Default recommendation based on moderate income and spend profile)`);
   }
 
+  // Withheld consent lowers confidence rather than being ignored (ADR-031).
+  // Saying "80% confident" on a profile we could only partly see would be a lie
+  // of exactly the kind this product exists to avoid.
+  if (signals.degradedScopes && signals.degradedScopes.length > 0) {
+    confidence = Number((confidence * 0.75).toFixed(2));
+    reasonTrace.push(
+      `confidence_reduced (computed without ${signals.degradedScopes.join(" and ")} — we are working with an incomplete picture)`
+    );
+  }
+
   return {
     toolName: "recommendProduct",
     output: {

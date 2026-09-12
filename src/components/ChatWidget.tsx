@@ -1,87 +1,139 @@
-import { useState, useRef, useEffect } from "react";
+"use client";
+
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useVoice } from "@/hooks/useVoice";
 import { speak, stopSpeaking } from "@/lib/speech";
 import { Recommendation } from "@/lib/types";
-import { MessageCircle, X, Send, Mic, MicOff, Sparkles, Loader2, HelpCircle } from "lucide-react";
+import { MessageSquare, X, Send, Mic, MicOff, Loader2, Info } from "lucide-react";
+import { Badge } from "./ui/badge";
 
 interface Message {
   role: "user" | "bot";
   content: string;
+  /** Set when the reply was a guardrail refusal rather than an answer */
+  blocked?: boolean;
+  /** Whether the LLM or our deterministic templates wrote this reply */
+  source?: "llm" | "deterministic";
 }
 
 interface ChatWidgetProps {
   customerId: string;
-  /** Grounded recommendation — enables the "Why this?" reasoning chip (ADR-021) */
+  customerName?: string;
+  /** Grounded recommendation — enables the "why this?" reasoning chip (ADR-021) */
   recommendation?: Recommendation | null;
 }
 
-export function ChatWidget({ customerId, recommendation = null }: ChatWidgetProps) {
+function greeting(name?: string): Message {
+  return {
+    role: "bot",
+    content: name
+      ? `Namaste ${name}. Ask me anything about your money, your spending, or why a product was suggested.`
+      : "Namaste. Ask me anything about your money, your spending, or why a product was suggested.",
+  };
+}
+
+export function ChatWidget({ customerId, customerName, recommendation = null }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "bot", content: "Namaste! I am DhanSathi. How can I help you today?" }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([greeting(customerName)]);
   const [input, setInput] = useState("");
-  const [lang, setLang] = useState<"en" | "hi">("hi"); // Default to Hindi for demo
+  const [lang, setLang] = useState<"en" | "hi">("en");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Voice hook uses hi-IN or en-IN based on selected lang
-  const { isListening, transcript, interimTranscript, startListening, stopListening, clearTranscript, error: voiceError } = useVoice(lang === "hi" ? "hi-IN" : "en-IN");
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    startListening,
+    stopListening,
+    clearTranscript,
+    error: voiceError,
+  } = useVoice(lang === "hi" ? "hi-IN" : "en-IN");
 
-  // Sync voice transcript to input
+  /**
+   * A conversation belongs to one customer. Carrying Priya's thread over to
+   * Sunita would leak one person's financial context into another's session —
+   * unacceptable in banking, and it also made the assistant answer the previous
+   * customer's question. Switching customers starts a clean thread.
+   */
   useEffect(() => {
-    if (transcript) {
-      setInput(transcript);
-    }
+    setMessages([greeting(customerName)]);
+    setInput("");
+    setIsLoading(false);
+    clearTranscript();
+    stopSpeaking();
+    if (isListening) stopListening();
+    // Intentionally keyed on the customer only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId, customerName]);
+
+  const handleSend = useCallback(
+    async (text: string = input) => {
+      if (!text.trim() || isLoading) return;
+
+      const outgoing: Message = { role: "user", content: text };
+      const history = messages;
+      setMessages([...history, outgoing]);
+      setInput("");
+      setIsLoading(true);
+      stopSpeaking();
+
+      try {
+        const res = await fetch(`/api/chat/${customerId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            language: lang,
+            // Only real exchanges are replayed; refusals would teach the model
+            // to repeat itself, which is exactly the bug we are fixing.
+            history: history
+              .filter((m) => !m.blocked)
+              .map((m) => ({ role: m.role === "user" ? "user" : "model", content: m.content })),
+          }),
+        });
+
+        const data = await res.json();
+        if (data.reply) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "bot", content: data.reply, blocked: data.blocked, source: data.source },
+          ]);
+          if (!data.blocked) speak(data.reply, lang === "hi" ? "hi-IN" : "en-IN");
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { role: "bot", content: "Sorry, I could not answer that just now." },
+          ]);
+        }
+      } catch (e) {
+        console.error(e);
+        setMessages((prev) => [
+          ...prev,
+          { role: "bot", content: "I am having trouble connecting right now." },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [customerId, input, isLoading, lang, messages]
+  );
+
+  useEffect(() => {
+    if (transcript) setInput(transcript);
   }, [transcript]);
 
-  // Handle voice stopping and auto-sending
   useEffect(() => {
-    // If it was listening and just stopped, and we have a transcript, send it
     if (!isListening && transcript.trim() !== "") {
       handleSend(transcript);
       clearTranscript();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isListening]);
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, interimTranscript]);
-
-  const handleSend = async (text: string = input) => {
-    if (!text.trim()) return;
-
-    const newMessages = [...messages, { role: "user" as const, content: text }];
-    setMessages(newMessages);
-    setInput("");
-    setIsLoading(true);
-    stopSpeaking(); // Stop any ongoing speech
-
-    try {
-      const res = await fetch(`/api/chat/${customerId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          language: lang,
-          history: messages // Send history for multi-turn
-        })
-      });
-
-      const data = await res.json();
-      if (data.reply) {
-        setMessages([...newMessages, { role: "bot", content: data.reply }]);
-        // Speak the reply automatically
-        speak(data.reply, lang === "hi" ? "hi-IN" : "en-IN");
-      }
-    } catch (e) {
-      console.error(e);
-      setMessages([...newMessages, { role: "bot", content: "Sorry, I am having trouble connecting right now." }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const toggleVoice = () => {
     if (isListening) {
@@ -94,141 +146,179 @@ export function ChatWidget({ customerId, recommendation = null }: ChatWidgetProp
     }
   };
 
+  const suggestions = recommendation
+    ? [
+        {
+          label: `Why ${recommendation.product.replace(/_/g, " ").toLowerCase()}?`,
+          prompt:
+            lang === "hi"
+              ? "Ye product mujhe kyu suggest kiya? Simple language mein samjhao."
+              : "Why was this product recommended to me? Explain simply.",
+        },
+        {
+          label: "How are my savings?",
+          prompt: lang === "hi" ? "Meri bachat kaisi chal rahi hai?" : "How are my savings doing?",
+        },
+      ]
+    : [];
+
   return (
     <>
-      {/* Floating Button */}
       {!isOpen && (
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center transition-transform hover:scale-110 z-50"
+          aria-label="Open DhanSathi chat"
+          className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-accent text-accent-fg shadow-lg transition-transform hover:scale-105"
         >
-          <MessageCircle className="w-6 h-6" />
+          <MessageSquare className="h-5 w-5" />
         </button>
       )}
 
-      {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-[350px] sm:w-[400px] h-[500px] max-h-[80vh] bg-gray-950 border border-white/10 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden backdrop-blur-xl">
-          
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-gray-900/50">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-100">DhanSathi Chat</h3>
-                <p className="text-xs text-emerald-400 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online
-                </p>
-              </div>
+        <div className="fixed bottom-6 right-6 z-50 flex h-[520px] max-h-[80vh] w-[350px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-2xl sm:w-[400px]">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <div>
+              <h3 className="text-sm font-semibold">DhanSathi</h3>
+              <p className="text-[11px] text-fg-subtle">
+                Banking questions only{customerName ? ` · ${customerName}` : ""}
+              </p>
             </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Language Toggle */}
-              <button 
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
                 onClick={() => setLang(lang === "en" ? "hi" : "en")}
-                className="text-xs font-semibold bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded text-gray-300 transition-colors"
+                className="rounded border border-line px-2 py-1 text-[11px] font-semibold text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
               >
                 {lang === "en" ? "ENG" : "हिंदी"}
               </button>
-              
-              <button onClick={() => { setIsOpen(false); stopSpeaking(); }} className="text-gray-400 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  stopSpeaking();
+                }}
+                aria-label="Close chat"
+                className="rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+              >
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
             {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div 
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                    msg.role === "user" 
-                      ? "bg-indigo-600 text-white rounded-tr-sm" 
-                      : "bg-gray-800 text-gray-200 border border-white/5 rounded-tl-sm"
+              <div
+                key={i}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`animate-fade-up max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-accent text-accent-fg"
+                      : msg.blocked
+                        ? "border border-dashed border-line-strong bg-surface-2 text-fg-muted"
+                        : "border border-line bg-surface-2 text-fg"
                   }`}
                 >
+                  {msg.blocked && (
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em]">
+                      <Info className="h-3 w-3" /> Outside banking
+                    </div>
+                  )}
                   {msg.content}
+                  {msg.source === "deterministic" && !msg.blocked && (
+                    <div className="mt-1.5">
+                      <Badge variant="muted">Grounded fallback</Badge>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
-            
-            {/* Interim voice transcript preview */}
+
             {isListening && interimTranscript && (
               <div className="flex justify-end">
-                <div className="max-w-[80%] rounded-2xl px-4 py-2 text-sm bg-indigo-600/50 text-white/70 rounded-tr-sm italic">
-                  {interimTranscript}...
+                <div className="max-w-[85%] rounded-lg bg-surface-2 px-3 py-2 text-sm italic text-fg-muted">
+                  {interimTranscript}
                 </div>
               </div>
             )}
 
-            {/* Loading Indicator */}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-800 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 flex items-center gap-1">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                <div className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 px-3 py-2.5">
+                  {[0, 0.15, 0.3].map((delay) => (
+                    <span
+                      key={delay}
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-fg-subtle"
+                      style={{ animationDelay: `${delay}s` }}
+                    />
+                  ))}
                 </div>
               </div>
             )}
-            
-            {voiceError && (
-               <div className="text-xs text-rose-400 text-center">{voiceError}</div>
-            )}
-            
+
+            {voiceError && <p className="text-center text-xs text-fg-subtle">{voiceError}</p>}
+
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Grounded reasoning quick-actions (ADR-021) */}
-          {recommendation && (
-            <div className="px-3 pb-1 flex flex-wrap gap-2">
-              <button
-                onClick={() => handleSend(lang === "hi" ? "Ye product mujhe kyu suggest kiya? Simple language mein samjhao." : "Why was this product recommended to me? Explain simply.")}
-                disabled={isLoading}
-                className="flex items-center gap-1.5 text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full px-3 py-1.5 transition-colors disabled:opacity-50"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                Why {recommendation.product.replace(/_/g, " ").toLowerCase()}?
-              </button>
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() => handleSend(s.prompt)}
+                  disabled={isLoading}
+                  className="rounded-full border border-line px-2.5 py-1 text-xs text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-40"
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Input Area */}
-          <div className="p-3 border-t border-white/10 bg-gray-900/80">
+          <div className="border-t border-line p-3">
             <div className="flex items-center gap-2">
-              <button 
+              <button
+                type="button"
                 onClick={toggleVoice}
-                className={`p-2 rounded-full transition-all flex-shrink-0 ${
-                  isListening 
-                    ? "bg-rose-500 text-white animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.5)]" 
-                    : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+                aria-label={isListening ? "Stop listening" : "Speak your question"}
+                className={`shrink-0 rounded-full border p-2 transition-colors ${
+                  isListening
+                    ? "border-transparent bg-accent text-accent-fg"
+                    : "border-line text-fg-muted hover:bg-surface-2 hover:text-fg"
                 }`}
               >
-                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </button>
-              
-              <input 
-                type="text" 
+
+              <input
+                type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={isListening ? "Listening..." : "Type a message..."}
-                className="flex-1 bg-gray-800 border border-white/5 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-500"
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder={isListening ? "Listening…" : "Ask about your money…"}
+                className="min-w-0 flex-1 rounded-full border border-line bg-surface-2 px-3.5 py-2 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-fg"
               />
-              
-              <button 
+
+              <button
+                type="button"
                 onClick={() => handleSend()}
                 disabled={!input.trim() || isLoading}
-                className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors flex-shrink-0"
+                aria-label="Send message"
+                className="shrink-0 rounded-full bg-accent p-2 text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
               >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
-          
         </div>
       )}
     </>

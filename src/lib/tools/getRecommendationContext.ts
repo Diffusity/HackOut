@@ -24,7 +24,7 @@ export interface RecommendationContext {
  * injected into chat so the LLM can *reason about* and *explain* a
  * recommendation without ever inventing a financial fact (ADR-021).
  */
-export function getRecommendationContext(customerId: string): RecommendationContext {
+export function getRecommendationContext(customerId: string, now?: Date): RecommendationContext {
   // 1. Consent is always the first gate (ADR-014)
   const consentResult = checkConsent(customerId);
   const consent = consentResult.output;
@@ -44,7 +44,7 @@ export function getRecommendationContext(customerId: string): RecommendationCont
   }
 
   // 2. Deterministic signals → recommendation → stress → wellness gate
-  const signalsResult = getCustomerSignals(customerId);
+  const signalsResult = getCustomerSignals(customerId, now);
   const signals = signalsResult.output;
   const baseRec = recommendProduct(signals);
   const stress = computeStressCore(signals);

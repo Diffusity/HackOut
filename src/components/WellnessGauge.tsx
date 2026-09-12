@@ -1,55 +1,103 @@
 import { StressAlert } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { HeartPulse } from "lucide-react";
+import { Badge } from "./ui/badge";
+
+function statusFor(score: number) {
+  if (score < 50) return "At risk";
+  if (score < 70) return "Watch";
+  return "Healthy";
+}
 
 export function WellnessGauge({ data }: { data: StressAlert | null }) {
   if (!data) return null;
 
   const score = data.wellnessScore;
+  const status = statusFor(score);
+  const model = data.model;
 
-  let status = "Healthy";
-  let color = "text-emerald-400";
-  let bgColor = "bg-emerald-400";
-  
-  if (score < 70 && score >= 50) {
-    status = "Warning";
-    color = "text-amber-400";
-    bgColor = "bg-amber-400";
-  } else if (score < 50) {
-    status = "At Risk";
-    color = "text-rose-400";
-    bgColor = "bg-rose-400";
-  }
+  // Semicircle arc: 0 -> 100 maps onto a half turn.
+  const radius = 56;
+  const circumference = Math.PI * radius;
+  const filled = (score / 100) * circumference;
 
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <HeartPulse className={`w-5 h-5 ${color}`} />
-          Financial Wellness
-        </CardTitle>
+      <CardHeader>
+        <CardTitle>Financial wellness</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center py-6 text-center">
-        <div className="relative w-32 h-16 overflow-hidden">
-          {/* Semi-circle gauge background */}
-          <div className="absolute top-0 left-0 w-32 h-32 rounded-full border-[12px] border-gray-800 border-b-transparent border-r-transparent transform -rotate-45"></div>
-          {/* Gauge fill */}
-          <div 
-            className={`absolute top-0 left-0 w-32 h-32 rounded-full border-[12px] ${color.replace('text', 'border')} border-b-transparent border-r-transparent transition-transform duration-1000 ease-out`}
-            style={{ 
-              transform: `rotate(${(-45 + (score / 100) * 180)}deg)`,
-              clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)'
-            }}
-          ></div>
-        </div>
-        <div className="mt-2">
-          <div className={`text-4xl font-bold ${color}`}>{score}</div>
-          <div className="text-xs uppercase tracking-wider text-gray-400 mt-1">{status}</div>
-        </div>
-        {data.empatheticMessage && (
-          <div className="mt-4 text-xs text-gray-300 bg-gray-900/50 p-3 rounded-lg border border-white/5 italic">
-            "{data.empatheticMessage}"
+      <CardContent>
+        <div className="flex flex-col items-center">
+          <svg viewBox="0 0 140 78" className="w-full max-w-[200px]" role="img" aria-label={`Wellness score ${score} of 100`}>
+            <path
+              d="M 14 70 A 56 56 0 0 1 126 70"
+              fill="none"
+              stroke="var(--surface-3)"
+              strokeWidth="10"
+              strokeLinecap="round"
+            />
+            <path
+              d="M 14 70 A 56 56 0 0 1 126 70"
+              fill="none"
+              stroke="var(--fg)"
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={`${filled} ${circumference}`}
+              className="transition-[stroke-dasharray] duration-700 ease-out"
+            />
+            <text
+              x="70"
+              y="62"
+              textAnchor="middle"
+              className="tnum"
+              style={{ fill: "var(--fg)", fontSize: "28px", fontWeight: 600 }}
+            >
+              {score}
+            </text>
+          </svg>
+
+          <div className="mt-1 flex items-center gap-2">
+            <Badge variant={status === "Healthy" ? "outline" : "solid"}>{status}</Badge>
+            <span className="text-xs text-fg-subtle">rules score</span>
           </div>
+        </div>
+
+        {model && (
+          <div className="mt-4 border-t border-line pt-3">
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-fg-muted">Model distress risk</span>
+              <span className="tnum font-semibold">{Math.round(model.probability * 100)}%</span>
+            </div>
+            <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-3">
+              <div
+                className="h-1 rounded-full bg-accent"
+                style={{ width: `${Math.min(100, model.probability * 100)}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-fg-muted">
+              {model.escalatedByModel
+                ? "The rules cleared this customer. The model did not, so we took the safer answer and held offers back."
+                : model.escalates
+                  ? "Model and rules agree this customer needs support rather than an offer."
+                  : `Below the ${Math.round(model.threshold * 100)}% intervention threshold.`}
+            </p>
+          </div>
+        )}
+
+        {data.reasons.length > 0 && (
+          <ul className="mt-3 space-y-1 border-t border-line pt-3 text-xs text-fg-muted">
+            {data.reasons.map((reason, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="text-fg-subtle">—</span>
+                <span>{reason}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {data.empatheticMessage && (
+          <p className="mt-3 rounded-md bg-surface-2 p-3 text-xs leading-relaxed text-fg">
+            {data.empatheticMessage}
+          </p>
         )}
       </CardContent>
     </Card>

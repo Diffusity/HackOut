@@ -1,28 +1,30 @@
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "secondary" | "destructive" | "outline" | "success" | "warning";
+  /**
+   * Emphasis, not colour. The palette is neutral by design, so severity is
+   * carried by fill weight: `solid` for the thing that matters most on the
+   * card, `outline` for context, `muted` for background detail.
+   */
+  variant?: "solid" | "outline" | "muted";
 }
 
-function Badge({ className, variant = "default", ...props }: BadgeProps) {
+function Badge({ className, variant = "outline", ...props }: BadgeProps) {
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+        "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]",
         {
-          "border-transparent bg-indigo-500/20 text-indigo-300": variant === "default",
-          "border-transparent bg-gray-800 text-gray-300": variant === "secondary",
-          "border-transparent bg-rose-500/20 text-rose-400": variant === "destructive",
-          "border-transparent bg-emerald-500/20 text-emerald-400": variant === "success",
-          "border-transparent bg-amber-500/20 text-amber-400": variant === "warning",
-          "text-foreground": variant === "outline",
+          "border-transparent bg-accent text-accent-fg": variant === "solid",
+          "border-line-strong bg-transparent text-fg": variant === "outline",
+          "border-transparent bg-surface-2 text-fg-muted": variant === "muted",
         },
         className
       )}
       {...props}
     />
-  )
+  );
 }
 
-export { Badge }
+export { Badge };

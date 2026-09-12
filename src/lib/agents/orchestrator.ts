@@ -2,7 +2,7 @@ import { createChatModel, sendWithRetry } from "../gemini";
 import { checkConsent } from "../tools/checkConsent";
 import { getCustomerSignals } from "../tools/getCustomerSignals";
 import { recommendProduct } from "../tools/recommendProduct";
-import { detectStressSignals } from "../tools/detectStressSignals";
+import { detectStressSignals, computeStressCore } from "../tools/detectStressSignals";
 import { computeTimingSignals } from "../tools/computeTimingSignals";
 import { predictRiskScore } from "../tools/predictRiskScore";
 import { applyWellnessGate } from "../tools/wellnessGate";
@@ -10,6 +10,15 @@ import { logAuditEntry } from "../audit";
 import { Recommendation, RiskPrediction, TimingSignals, ToolResult } from "../types";
 import { FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { checkOutputGuardrails } from "../guardrails";
+import { buildNarration } from "../narration";
+
+export interface OrchestratorResult {
+  recommendation: ToolResult<Recommendation>;
+  narration: string;
+  timing: ToolResult<TimingSignals> | null;
+  /** Transparency for judges: did the LLM write this sentence, or our templates? */
+  narrationSource: "llm" | "deterministic";
+}
 
 const checkConsentDeclaration: FunctionDeclaration = {
   name: "checkConsent",
@@ -74,12 +83,12 @@ const predictRiskScoreDeclaration: FunctionDeclaration = {
 };
 
 // Wrapper for the LLM to call
-async function recommendProductWrapper(customerId: string): Promise<ToolResult<Recommendation>> {
-  const signalsResult = getCustomerSignals(customerId);
+async function recommendProductWrapper(customerId: string, now?: Date): Promise<ToolResult<Recommendation>> {
+  const signalsResult = getCustomerSignals(customerId, now);
   const recResult = recommendProduct(signalsResult.output);
   
   // Apply Wellness Gate
-  const stressResult = await detectStressSignals(customerId);
+  const stressResult = await detectStressSignals(customerId, now);
   const gatedRec = applyWellnessGate(stressResult.output, recResult.output);
   
   return {
@@ -91,12 +100,14 @@ async function recommendProductWrapper(customerId: string): Promise<ToolResult<R
 
 export class AgentOrchestrator {
   private customerId: string;
+  private now?: Date;
 
-  constructor(customerId: string) {
+  constructor(customerId: string, now?: Date) {
     this.customerId = customerId;
+    this.now = now;
   }
 
-  async recommend(): Promise<{ recommendation: ToolResult<Recommendation>; narration: string; timing: ToolResult<TimingSignals> | null }> {
+  async recommend(): Promise<OrchestratorResult> {
     // Check if API key is missing
     if (!process.env.GEMINI_API_KEY) {
       console.warn("No GEMINI_API_KEY found, running fallback deterministic pipeline");
@@ -167,7 +178,7 @@ export class AgentOrchestrator {
           if (!consentGranted) {
             functionResponse = { error: "Consent not granted. Cannot process recommendation." };
           } else {
-            const res = await recommendProductWrapper((call.args as any).customerId as string);
+            const res = await recommendProductWrapper((call.args as any).customerId as string, this.now);
             finalRecommendation = res;
             functionResponse = res.output;
             
@@ -185,7 +196,7 @@ export class AgentOrchestrator {
           if (!consentGranted) {
             functionResponse = { error: "Consent not granted. Cannot process timing analysis." };
           } else {
-            const res = computeTimingSignals((call.args as any).customerId as string);
+            const res = computeTimingSignals((call.args as any).customerId as string, this.now ?? new Date());
             functionResponse = res.output;
             finalTiming = res;
 
@@ -263,10 +274,11 @@ export class AgentOrchestrator {
       recommendation: finalRecommendation,
       narration: finalNarration,
       timing: finalTiming,
+      narrationSource: "llm",
     };
   }
 
-  private async runFallbackPipeline() {
+  private async runFallbackPipeline(): Promise<OrchestratorResult> {
     const consentRes = checkConsent(this.customerId);
     logAuditEntry({
       timestamp: new Date(),
@@ -295,16 +307,13 @@ export class AgentOrchestrator {
           timestamp: new Date(),
         },
         narration: "We cannot access your data without consent.",
+        narrationSource: "deterministic",
         timing: null,
       };
     }
 
-    const recRes = await recommendProductWrapper(this.customerId);
-    const timingRes = computeTimingSignals(this.customerId);
-
-    const timingNarration = timingRes.output.trigger
-      ? ` (Timing: ${timingRes.output.reason})`
-      : "";
+    const recRes = await recommendProductWrapper(this.customerId, this.now);
+    const timingRes = computeTimingSignals(this.customerId, this.now ?? new Date());
 
     logAuditEntry({
       timestamp: new Date(),
@@ -350,6 +359,7 @@ export class AgentOrchestrator {
       recommendation: recRes,
       narration,
       timing: timingRes,
+      narrationSource: "deterministic",
     };
   }
 }

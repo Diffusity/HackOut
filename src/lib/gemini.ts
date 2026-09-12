@@ -50,7 +50,9 @@ export async function sendWithRetry(chat: any, message: any, maxAttempts = 3): P
       const status = e?.status ?? 0;
       const transient = status === 429 || status === 500 || status === 503;
       if (!transient || attempt === maxAttempts) throw e;
-      const backoffMs = attempt * 15000; // 15s, 30s — fits a 5 req/min free-tier window
+      // Backoff must stay well inside the Vercel function timeout (ADR-022):
+      // 15s/30s sleeps got the lambda killed before the retry could land.
+      const backoffMs = attempt * 2000; // 2s, 4s
       console.log(`[gemini] transient error ${status} (attempt ${attempt}/${maxAttempts}), retrying in ${backoffMs}ms...`);
       await new Promise((r) => setTimeout(r, backoffMs));
     }
@@ -75,6 +77,7 @@ export const geminiPro = () =>
  * Model selection: see the MODEL PIN note on `CHAT_MODEL` above.
  */
 export function createChatModel(options: {
+  history?: { role: "user" | "model"; parts: { text: string }[] }[];
   systemInstruction?: string;
   generationConfig?: GenerationConfig;
   tools?: any[];
@@ -85,5 +88,9 @@ export function createChatModel(options: {
   }).startChat({
     ...(options.generationConfig ? { generationConfig: options.generationConfig } : {}),
     ...(options.tools ? { tools: options.tools } : {}),
+    // History belongs in startChat. Replaying prior turns with sendMessage()
+    // costs one API call each — on a ~20 req/day free tier that alone ended
+    // the demo after three messages.
+    ...(options.history?.length ? { history: options.history } : {}),
   });
 }
