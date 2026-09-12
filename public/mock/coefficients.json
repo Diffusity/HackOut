@@ -1,0 +1,6 @@
+[
+  { "name": "income", "weight": 0.45 },
+  { "name": "expenses", "weight": -0.30 },
+  { "name": "creditUtilization", "weight": -0.20 },
+  { "name": "savingsRate", "weight": 0.15 }
+]

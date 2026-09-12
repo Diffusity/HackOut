@@ -7,7 +7,7 @@ import type { Customer } from '../lib/types';
 /** Portfolio page – displays simulated portfolio for a demo customer */
 export default function PortfolioPage() {
   // For demo we just pick the first SIP nudge entry to get a customer id
-  const { data: sipNudges, loading } = useMockData<any>('data/mock/sipNudge.json');
+  const { data: sipNudges, loading } = useMockData<any>('sipNudge.json');
   const customer: Customer | null = sipNudges && sipNudges.length > 0 ? sipNudges[0] : null;
 
   return (

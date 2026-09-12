@@ -12,16 +12,6 @@ export interface Customer {
   // Demo fields for mock calculations
   monthlyIncome?: number;
   monthlyExpense?: number;
-  customerId: string;
-  name: string;
-  segment: "salaried" | "gig" | "self_employed";
-  cityTier: 2 | 3 | 4;
-  preferredLanguage: "hi" | "en" | "ta" | "te" | "kn" | "bn";
-  consent: {
-    transactions: boolean;
-    location: boolean;
-    spendCategories: boolean;
-  };
 }
 
 export interface Transaction {

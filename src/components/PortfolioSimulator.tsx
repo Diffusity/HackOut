@@ -1,6 +1,6 @@
 import React from 'react';
-import { useInvestmentSimulator } from '../../hooks/useInvestmentSimulator';
-import type { Customer } from '../../lib/types';
+import { useInvestmentSimulator } from '../hooks/useInvestmentSimulator';
+import type { Customer } from '../lib/types';
 
 /**
  * Simple portfolio simulator UI.

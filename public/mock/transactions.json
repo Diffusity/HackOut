@@ -1,0 +1,72 @@
+[
+  {
+    "id": "txn1",
+    "date": "2024-09-01",
+    "amount": 125.75,
+    "merchant": "SuperMart",
+    "category": "Groceries"
+  },
+  {
+    "id": "txn2",
+    "date": "2024-09-03",
+    "amount": 2300.00,
+    "merchant": "RentCo",
+    "category": "Rent"
+  },
+  {
+    "id": "txn3",
+    "date": "2024-09-05",
+    "amount": 45.20,
+    "merchant": "CoffeeHouse",
+    "category": "Food"
+  },
+  {
+    "id": "txn4",
+    "date": "2024-09-07",
+    "amount": 99.99,
+    "merchant": "OnlineStore",
+    "category": "Shopping"
+  },
+  {
+    "id": "txn5",
+    "date": "2024-09-09",
+    "amount": 12.50,
+    "merchant": "Metro",
+    "category": "Transport"
+  },
+  {
+    "id": "txn6",
+    "date": "2024-09-10",
+    "amount": 560.00,
+    "merchant": "ElectricCo",
+    "category": "Utilities"
+  },
+  {
+    "id": "txn7",
+    "date": "2024-09-12",
+    "amount": 78.45,
+    "merchant": "Gym",
+    "category": "Health"
+  },
+  {
+    "id": "txn8",
+    "date": "2024-09-14",
+    "amount": 300.00,
+    "merchant": "TravelAgency",
+    "category": "Travel"
+  },
+  {
+    "id": "txn9",
+    "date": "2024-09-16",
+    "amount": 18.99,
+    "merchant": "Netflix",
+    "category": "Entertainment"
+  },
+  {
+    "id": "txn10",
+    "date": "2024-09-18",
+    "amount": 2500.00,
+    "merchant": "Salary",
+    "category": "Income"
+  }
+]

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
  *  The data files are located under src/data/mock and imported at build time.
  *  The generic type T represents the shape of the JSON data.
  */
-export function useMockData<T>(modulePath: string): { data: T | null; loading: boolean } {
+export function useMockData<T>(fileName: string): { data: T | null; loading: boolean } {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -12,9 +12,8 @@ export function useMockData<T>(modulePath: string): { data: T | null; loading: b
     let cancelled = false;
     async function load() {
       try {
-        // Dynamic import based on the provided relative path from the src directory.
-        // Example usage: useMockData<any>('src/data/mock/sipNudge.json')
-        const mod = await import(`../${modulePath}`);
+        // Restrict dynamic import to the specific directory so webpack doesn't bundle everything.
+        const mod = await import(`../data/mock/${fileName}`);
         if (!cancelled) {
           setData(mod.default as T);
         }
@@ -28,7 +27,7 @@ export function useMockData<T>(modulePath: string): { data: T | null; loading: b
     return () => {
       cancelled = true;
     };
-  }, [modulePath]);
+  }, [fileName]);
 
   return { data, loading };
 }

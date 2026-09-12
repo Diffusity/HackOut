@@ -1,4 +1,7 @@
-import postgres from "postgres";
+let postgres: any;
+if (typeof window === 'undefined') {
+  postgres = require('postgres');
+}
 
 /**
  * Database client (ADR-032).
@@ -71,7 +74,7 @@ export function withTimeout<T>(label: string, run: () => Promise<T>): Promise<T>
  * failure. One connection per process, reused, is the whole fix.
  */
 interface ClientStore {
-  __dhansathiSql?: postgres.Sql | null;
+  __dhansathiSql?: any | null;
   __dhansathiSqlInit?: boolean;
   __dhansathiDbError?: string | null;
 }
@@ -114,7 +117,7 @@ function warnIfDirectConnection(url: string): void {
   }
 }
 
-export function getSql(): postgres.Sql | null {
+export function getSql(): any | null {
   if (store.__dhansathiSqlInit) return store.__dhansathiSql ?? null;
   store.__dhansathiSqlInit = true;
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Sliders, RefreshCw, AlertCircle } from "lucide-react";
 import { Badge } from "./ui/badge";
@@ -10,19 +8,18 @@ export function WhatIfSimulator() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simResult, setSimResult] = useState<string | null>(null);
 
-  const handleSimulate = () => {
+  const handleSimulate = async () => {
     setIsSimulating(true);
-    // Simulate a brief delay to mimic an API call
-    setTimeout(() => {
-      if (spending > income) {
-        setSimResult("High stress detected. Wellness gate suppresses credit recommendations. Consider emergency fund options.");
-      } else if (income - spending > 20000) {
-        setSimResult("Low risk profile. Recommend Premium Wealth Credit Card with higher limits.");
-      } else {
-        setSimResult("Moderate risk. Recommend standard Personal Loan based on current debt-to-income ratio.");
-      }
+    try {
+      const res = await fetch('/api/mock/predictions');
+      const data = await res.json();
+      const result = data[0]?.recommendation || "Simulation result unavailable.";
+      setSimResult(result);
+    } catch (e) {
+      setSimResult("Error fetching simulation result.");
+    } finally {
       setIsSimulating(false);
-    }, 800);
+    }
   };
 
   return (

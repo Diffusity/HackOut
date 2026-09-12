@@ -8,7 +8,7 @@ import type { CreditOffer, Customer } from '../lib/types';
  * the customer's stress score (derived from existing data) against the configured thresholds.
  */
 export function useGuardrail(customer: Customer | null) {
-  const { data: offers, loading } = useMockData<CreditOffer[]>('data/mock/creditOffers.json');
+  const { data: offers, loading } = useMockData<CreditOffer[]>('creditOffers.json');
   const [eligibleOffer, setEligibleOffer] = useState<CreditOffer | null>(null);
 
   useEffect(() => {

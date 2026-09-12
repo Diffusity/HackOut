@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useGuardrail } from '../../hooks/useGuardrail';
-import type { CreditOffer, Customer } from '../../lib/types';
+import { useGuardrail } from '../hooks/useGuardrail';
+import type { CreditOffer, Customer } from '../lib/types';
 
 /**
  * Modal that appears when the customer's stress score exceeds the threshold.

@@ -6,7 +6,7 @@ import Head from 'next/head';
 
 /** Funding page – displays business funding referral options */
 export default function FundingPage() {
-  const { data: referrals, loading } = useMockData<FundingReferral[]>('data/mock/funding.json');
+  const { data: referrals, loading } = useMockData<FundingReferral[]>('funding.json');
 
   return (
     <>

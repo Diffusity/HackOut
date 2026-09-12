@@ -8,8 +8,8 @@ import type { SipNudge, PortfolioAllocation, Customer } from '../lib/types';
  * For the demo, the logic is simple rule‑based matching based on the customer's profile.
  */
 export function useRecommendation(customer: Customer | null) {
-  const { data: sipNudges, loading: sipLoading } = useMockData<SipNudge[]>('src/data/mock/sipNudge.json');
-  const { data: marketStrategy, loading: strategyLoading } = useMockData<PortfolioAllocation[]>('src/data/mock/marketStrategy.json');
+  const { data: sipNudges, loading: sipLoading } = useMockData<SipNudge[]>('sipNudge.json');
+  const { data: marketStrategy, loading: strategyLoading } = useMockData<PortfolioAllocation[]>('marketStrategy.json');
 
   const [sipRecommendation, setSipRecommendation] = useState<SipNudge | null>(null);
   const [allocation, setAllocation] = useState<PortfolioAllocation[]>([]);

@@ -1,15 +1,9 @@
 import React from 'react';
-import { useRecommendation } from '../../hooks/useRecommendation';
-import { useAuth } from '../../hooks/useAuth'; // assuming an auth hook exists
-import type { SipNudge } from '../../lib/types';
+import { useRecommendation } from '../hooks/useRecommendation';
+import type { SipNudge, Customer } from '../lib/types';
 
-/**
- * SIP Nudge Banner displayed on the Dashboard.
- * Shows a personalized suggestion for setting up a Systematic Investment Plan.
- */
-export const SIPNudgeBanner: React.FC = () => {
-  const { user } = useAuth(); // get current logged‑in customer
-  const { sipRecommendation, loading } = useRecommendation(user);
+export const SIPNudgeBanner: React.FC<{ customer: Customer | null }> = ({ customer }) => {
+  const { sipRecommendation, loading } = useRecommendation(customer);
 
   if (loading || !sipRecommendation) {
     return null;

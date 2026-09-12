@@ -8,7 +8,7 @@ import type { Customer, PortfolioAllocation, PortfolioSimulationResult } from '.
  * calculate a projected annual return based on a hard‑coded mock rate.
  */
 export function useInvestmentSimulator(customer: Customer | null) {
-  const { data: marketStrategy, loading } = useMockData<PortfolioAllocation[]>('data/mock/marketStrategy.json');
+  const { data: marketStrategy, loading } = useMockData<PortfolioAllocation[]>('marketStrategy.json');
   const [result, setResult] = useState<PortfolioSimulationResult | null>(null);
 
   useEffect(() => {

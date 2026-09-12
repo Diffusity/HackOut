@@ -6,7 +6,22 @@ interface RiskExplainabilityModalProps {
   onClose: () => void;
 }
 
+import { useEffect, useState } from "react";
+import { saveAs } from "file-saver";
 export function RiskExplainabilityModal({ isOpen, onClose }: RiskExplainabilityModalProps) {
+  const [coefficients, setCoefficients] = useState<any[]>([]);
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/mock/coefficients')
+        .then(res => res.json())
+        .then(data => setCoefficients(data))
+        .catch(() => setCoefficients([]));
+    }
+  }, [isOpen]);
+  const downloadCoefficients = () => {
+    const blob = new Blob([JSON.stringify(coefficients, null, 2)], { type: 'application/json' });
+    saveAs(blob, 'coefficients.json');
+  };
   if (!isOpen) return null;
 
   return (
@@ -75,6 +90,15 @@ export function RiskExplainabilityModal({ isOpen, onClose }: RiskExplainabilityM
               </div>
             ))}
           </div>
+          {coefficients.length > 0 && (
+            <button
+              type="button"
+              onClick={downloadCoefficients}
+              className="mt-4 rounded bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
+            >
+              Download coefficients
+            </button>
+          )}
 
           <div className="mt-6 flex items-center justify-between border-t border-line pt-4 text-xs text-fg-subtle">
             <div className="flex items-center gap-1.5">
