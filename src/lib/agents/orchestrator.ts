@@ -92,7 +92,7 @@ export class AgentOrchestrator {
 
     try {
       let response = await chat.sendMessage(`Recommend a product for customer ${this.customerId}`);
-      let calls = response.functionCalls();
+      let calls = response.response.functionCalls();
 
       while (calls && calls.length > 0) {
         const call = calls[0]; // Handle one at a time for simplicity
@@ -100,7 +100,7 @@ export class AgentOrchestrator {
         let functionResponse: any;
 
         if (call.name === "checkConsent") {
-          const res = checkConsent(call.args.customerId as string);
+          const res = checkConsent((call.args as any).customerId as string);
           consentGranted = res.output.consentGranted;
           functionResponse = res.output;
           
@@ -117,7 +117,7 @@ export class AgentOrchestrator {
           if (!consentGranted) {
             functionResponse = { error: "Consent not granted. Cannot process recommendation." };
           } else {
-            const res = recommendProductWrapper(call.args.customerId as string);
+            const res = recommendProductWrapper((call.args as any).customerId as string);
             finalRecommendation = res;
             functionResponse = res.output;
             
@@ -142,10 +142,10 @@ export class AgentOrchestrator {
           }
         }]);
         
-        calls = response.functionCalls();
+        calls = response.response.functionCalls();
       }
 
-      finalNarration = response.text();
+      finalNarration = response.response.text();
 
     } catch (e: any) {
       console.error("Orchestrator error:", e);
