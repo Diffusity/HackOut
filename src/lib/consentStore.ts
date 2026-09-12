@@ -29,8 +29,17 @@ export function serializeOverrides(): string {
   return encodeURIComponent(JSON.stringify(Object.fromEntries(overrides)));
 }
 
-/** Rehydrate the in-process view from the cookie at the start of a request. */
+/**
+ * Rehydrate the in-process view from the cookie at the start of a request.
+ *
+ * This RESETS rather than merges, and that is the important part. The map is
+ * module-level, so without a reset one visitor revoking consent would change
+ * what every other visitor on the same instance sees, and their own cookie
+ * could never undo it. Each request's view must come only from that request's
+ * cookie; no cookie means seed consent.
+ */
 export function applyConsentCookie(raw: string | undefined): void {
+  overrides.clear();
   if (!raw) return;
   try {
     const parsed = JSON.parse(decodeURIComponent(raw)) as Record<string, ConsentState>;
