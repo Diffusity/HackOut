@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "eval": "ts-node scripts/eval-suite.ts",
-    "pretest": "npm run eval"
+    "eval": "tsx scripts/eval-suite.ts",
+    "train": "tsx scripts/train-model.ts",
+    "verify": "tsx scripts/verify-counterfactuals.ts && tsx scripts/verify-ml.ts && tsx scripts/verify-signals.ts && tsx scripts/verify-stress.ts && tsx scripts/verify-timing.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

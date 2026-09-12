@@ -58,6 +58,7 @@ export interface StressAlert {
   reasons: string[];
   recommendedIntervention: string;
   empatheticMessage: string;
+  model?: ModelVerdict;
 }
 
 export type TimingUrgency = "now" | "soon" | "scheduled";
@@ -93,4 +94,22 @@ export interface AuditRecord extends AuditEntry {
   seq: number;
   prevHash: string;
   hash: string;
+}
+
+/** What the trained model said, and whether it agreed with the rules (ADR-027). */
+export interface ModelVerdict {
+  probability: number;
+  escalates: boolean;
+  threshold: number;
+  modelVersion: string;
+  contributions: {
+    feature: string;
+    value: number;
+    contribution: number;
+    direction: "raises risk" | "lowers risk";
+    label: string;
+  }[];
+  agreesWithRules: boolean;
+  /** True when the model pulled a customer into protection the rules had cleared */
+  escalatedByModel: boolean;
 }
