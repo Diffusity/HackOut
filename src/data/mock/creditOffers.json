@@ -1,0 +1,14 @@
+[
+  {
+    "customerId": "CUST_PRIYA",
+    "offer": {
+      "productId": "CREDIT_001",
+      "name": "Emergency Credit Line",
+      "limit": 5000,
+      "interestRate": 12.5,
+      "durationMonths": 12
+    },
+    "stressThreshold": 0.8,
+    "reason": "High stress score detected"
+  }
+]

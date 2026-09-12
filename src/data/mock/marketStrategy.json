@@ -1,0 +1,14 @@
+[
+  {
+    "assetClass": "Equities",
+    "percentage": 40
+  },
+  {
+    "assetClass": "Bonds",
+    "percentage": 30
+  },
+  {
+    "assetClass": "Cash",
+    "percentage": 30
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "customerId": "CUST_PRIYA",
+    "referral": {
+      "productId": "FUND_001",
+      "name": "Invoice Discounting",
+      "description": "Advance up to 80% of invoice value",
+      "eligibility": "SME with monthly revenue > 50k"
+    },
+    "reason": "High turnover and stable income"
+  }
+]
