@@ -1,10 +1,18 @@
 import { checkPromptInjection } from "./promptInjection";
 import { checkOutputValidator } from "./outputValidator";
 import { checkFinancialAccuracy } from "./financialGuard";
+import { checkTopicScope, ScopeResult } from "./topicScope";
 import { GuardrailResult } from "./types";
 
-export function checkInputGuardrails(input: string): GuardrailResult {
-  return checkPromptInjection(input);
+/**
+ * Input guardrails run in order of severity: an injection attempt is an attack
+ * and is refused outright; an off-topic question is an honest mistake and gets
+ * a helpful redirect. Both are answered WITHOUT calling the LLM.
+ */
+export function checkInputGuardrails(input: string): ScopeResult {
+  const injection = checkPromptInjection(input);
+  if (!injection.safe) return injection;
+  return checkTopicScope(input);
 }
 
 export function checkOutputGuardrails(output: string, toolData?: any): GuardrailResult {
@@ -18,3 +26,5 @@ export function checkOutputGuardrails(output: string, toolData?: any): Guardrail
 }
 
 export * from "./types";
+export { checkTopicScope, buildScopeRefusal } from "./topicScope";
+export type { ScopeResult } from "./topicScope";

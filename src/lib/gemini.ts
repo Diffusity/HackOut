@@ -77,6 +77,7 @@ export const geminiPro = () =>
  * Model selection: see the MODEL PIN note on `CHAT_MODEL` above.
  */
 export function createChatModel(options: {
+  history?: { role: "user" | "model"; parts: { text: string }[] }[];
   systemInstruction?: string;
   generationConfig?: GenerationConfig;
   tools?: any[];
@@ -87,5 +88,9 @@ export function createChatModel(options: {
   }).startChat({
     ...(options.generationConfig ? { generationConfig: options.generationConfig } : {}),
     ...(options.tools ? { tools: options.tools } : {}),
+    // History belongs in startChat. Replaying prior turns with sendMessage()
+    // costs one API call each — on a ~20 req/day free tier that alone ended
+    // the demo after three messages.
+    ...(options.history?.length ? { history: options.history } : {}),
   });
 }
