@@ -24,6 +24,7 @@ consent check → customer signals → product recommendation → stress detecti
 - **Vernacular voice chat** (ADR-002/006): Web Speech API with Hinglish/English toggle
 - **Grounded chat reasoning** (ADR-021): ask *"Why this product?"* (use the chip in the chat) — the LLM explains using **only** the deterministic reason trace, verified by output guardrails, with a deterministic fallback narration if the LLM is unavailable
 - **Prompt-injection shield + output guardrails** (ADR-016), all blocks audit-logged
+- **Contextual Timing Engine** (Feature 13, ADR-011): deterministic "WHEN" layer — 5 priority life-context rules (EMI due soon, salary just credited, festival window, stable savings momentum, spend-pattern shift) decide *when* to act and whether it's an offer or a proactive alert; LLM only narrates the timing
 
 ## Getting started
 
@@ -63,6 +64,8 @@ npx tsx scripts/verify-signals.ts        # signal extraction per persona
 npx tsx scripts/verify-stress.ts         # stress scoring + wellness gate (Sunita → suppressed)
 npx tsx scripts/verify-chat-context.ts   # chat grounding context per persona (ADR-021)
 npx tsx scripts/verify-recommendation.ts # full orchestrator end-to-end (real LLM if key valid)
+npx tsx src/tests/timingCore.test.ts     # deterministic timing-engine unit tests (21 assertions)
+npx tsx scripts/verify-timing.ts         # timing triggers per persona (real data)
 npx tsc --noEmit                         # typecheck
 ```
 

@@ -62,6 +62,38 @@
 
 ---
 
+## 1. Feature 13 — Contextual Timing Engine (⏰ `computeTimingSignals`)
+
+**Status: ✅ DONE** (commits `cdb34b2`, `d25ef65`) — 21/21 unit assertions + real-data verify + build green.
+
+### Design (as implemented)
+- **Pure core** `computeTimingCore(input)` in `src/lib/tools/computeTimingSignals.ts` — no LLM, no globals; takes `{ signals, transactions, now }` with an **injectable clock** so tests are 100% deterministic. Returns `TimingSignals & { reasonTrace }` (`TimingSignals`/`TimingUrgency` added to `src/lib/types.ts`).
+- **5 priority rules** (first match wins — urgency & stress-prevention ordered):
+  1. `emi_due_soon` (urgency `now`): next EMI within ≤3 days (predicted from historical EMI day-of-month pattern) AND low-balance proxy (`savingsRate < 0.10` OR `emiMissCount90d ≥ 1`). Reason explicitly says "a proactive alert, not an offer" so narration never sells during stress.
+  2. `salary_credited_recently` (`now`): latest salary credit ≤48h old → savings-momentum nudge.
+  3. `festival_savings_window` (`soon`): next festival in `FESTIVAL_CALENDAR` (deterministic UTC dates) ≤14 days out.
+  4. `stable_savings_upgrade` (`scheduled`): savings rate ≥30% in each of the last 3 **full** calendar months.
+  5. `spend_category_shift` (`soon`): TV-1/2 distance between last-two-month debit category distributions >0.4 → gentle check-in.
+  6. Fallback: `trigger: null`, urgency `scheduled`.
+- **Consent-gated wrapper** `computeTimingSignals(customerId, now?)` returns `ToolResult<TimingSignals>`; consent-denied → `trigger: null` + `timing=blocked` reason trace (no data access). Full reason trace = consent + signals + rule traces.
+- **Orchestrator**: registered as `computeTimingSignals` function declaration; consent enforced in-loop; audited (`action: "computeTimingSignals"`, decision = trigger/urgency); system instruction tells the LLM to weave the timing reason in and to NOT push a product when the reason is a proactive alert. `recommend()` now returns `timing: ToolResult<TimingSignals> | null` (backward-compatible for existing consumers). Fallback pipeline appends `(Timing: …)` to narration and also returns timing.
+
+### Decisions made during implementation
+- UTC month arithmetic everywhere (full prior months only) — avoids DST/timezone nondeterminism.
+- Rule 1 predicts the next due date from day-of-month history rather than storing a schedule — works with fixture data that has no explicit due-date field.
+- EMI prediction window scans current + next month only (dedupes day-of-month >28 edge cases).
+- No new dependencies; festival calendar is a hard-coded deterministic table (10 entries, 2026–2027).
+
+### Test evidence
+- `npx tsx src/tests/timingCore.test.ts` → **21 passed, 0 failed** (per-rule trigger + negative cases + priority ordering + calendar sanity).
+- `npx tsx scripts/verify-timing.ts` (real data): Priya → `stable_savings_upgrade/scheduled`; Ramesh → `stable_savings_upgrade/scheduled`; Sunita → `emi_due_soon/now` (stressed → proactive alert, consistent with Wellness Gate narrative). Consent-denied path verified by unit tests (no such persona in fixture data).
+- `npx tsc --noEmit` → 0 errors; `npm run build` → success (BUILD_EXIT=0).
+
+### Commits
+1. `cdb34b2` feat(F13): deterministic timing engine core with 5 priority rules
+2. `d25ef65` feat(F13): register timing tool with orchestrator (consent-gated, audited) + verify script
+3. (this commit) docs: update implementation plan status (F13)
+
 ## 2. Feature 15 — Fraud/Anomaly Detection (🔍 `detectAnomalies`)
 
 **Status: ⬜ NOT STARTED — awaiting approval**
@@ -421,7 +453,7 @@
 | # | Feature | Status | Evidence |
 |---|---------|--------|----------|
 | 11 | LLM Guardrail Suite | ✅ DONE (06b92cd; norm fix a6ce407) | live chat: block + verified pass |
-| 13 | Timing Engine | ⬜ pending approval | — |
+| 13 | Timing Engine | ✅ DONE (cdb34b2, d25ef65) | 21/21 unit + verify-timing (3 personas) + build green |
 | 15 | Fraud Detection | ⬜ pending approval | — |
 | 14 | Loan Journey | ⬜ pending approval | — |
 | 12 | Eval Suite | ⬜ pending approval | — |
