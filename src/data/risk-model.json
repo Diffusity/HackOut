@@ -1,0 +1,75 @@
+{
+  "version": "risknet-1.0",
+  "featureNames": [
+    "savingsRate",
+    "salaryRegularity",
+    "emiToIncomeRatio",
+    "momDebitTrend",
+    "spendVolatility",
+    "incomeVolatility",
+    "categoryConcentration",
+    "logTxnCount"
+  ],
+  "featureDescriptions": {
+    "savingsRate": "share of income saved this month",
+    "salaryRegularity": "salary arrived as expected this month",
+    "emiToIncomeRatio": "EMI burden as a share of income",
+    "momDebitTrend": "spend change vs the previous month",
+    "spendVolatility": "week-to-week spending swings",
+    "incomeVolatility": "income stream stability",
+    "categoryConcentration": "how concentrated spending is in one category",
+    "logTxnCount": "transaction activity level"
+  },
+  "means": [
+    0.625159,
+    0.533333,
+    0.053437,
+    0.070199,
+    0.878494,
+    0.287174,
+    0.45444,
+    3.110906
+  ],
+  "stds": [
+    0.188813,
+    0.498888,
+    0.078704,
+    0.509446,
+    0.343692,
+    0.32949,
+    0.146627,
+    0.270775
+  ],
+  "weights": [
+    -2.194508,
+    -0.61094,
+    0.685663,
+    -1.109223,
+    -0.468152,
+    0.865381,
+    -0.236675,
+    0.664167
+  ],
+  "bias": -5.293973,
+  "trainingMeta": {
+    "generatedFromHash": "aa6ea995c424",
+    "datasetRows": 75,
+    "positiveRows": 2,
+    "hyperparams": {
+      "learningRate": 0.3,
+      "iterations": 3000,
+      "l2": 0.01,
+      "classWeighting": "balanced"
+    },
+    "metrics": {
+      "trainAccuracy": 0.986667,
+      "trainPrecision": 0.666667,
+      "trainRecall": 1,
+      "trainAuc": 1,
+      "locoCvAccuracy": 0.957143,
+      "locoCvAuc": null,
+      "locoCvPredictions": 70
+    },
+    "caveat": "Trained on ~75 synthetic customer-month rows with only a handful of positives. Experimental, advisory-only; never used for compliance decisions (ADR-022)."
+  }
+}
