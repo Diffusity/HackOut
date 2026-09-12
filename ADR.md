@@ -1327,3 +1327,17 @@ A customer the wellness gate has flagged cannot reach a Key Facts Statement at a
 - The KFS is stored as issued, in full, not as a template reference. If pricing changes tomorrow, the document this customer was shown must still be reproducible exactly.
 - An expired KFS cannot be accepted. The validity window is a promise about price, and honouring a stale one would mean the document the customer read was not the one that bound us.
 - This is a hackathon implementation of a real regulation, not legal advice. The numbers are computed honestly; a production lender would have counsel review the wording and its board fix the cooling-off period.
+
+### ADR-032 addendum: connection settings, and three bugs they caused
+
+Getting a hosted pooler to behave took four wrong turns worth recording, because every one of them presented as "the database is being ignored" rather than as a connection fault.
+
+**`max: 1` caused head-of-line blocking.** One connection seemed prudent for serverless. It is not: a hosted pooler drops idle clients without telling the driver, so that single socket eventually goes stale, and then *every* query queues behind a dead connection and hangs forever. `max: 4` lets a stale connection fail on its own while the others keep serving — which is the point of talking to a pooler at all.
+
+**A long `idle_timeout` made it worse.** Holding sockets for five minutes looks like a saving and is actually how you accumulate dead ones. The driver's idle timeout must be shorter than the pooler's, so we recycle before the far end silently discards.
+
+**`connection: { statement_timeout }` hung every query.** A transaction-mode pooler accepts only a fixed set of startup parameters. Sending it one it does not recognise does not produce an error — it hangs. A client-side race is the only timeout that works through a pooler.
+
+**The query timeout was shorter than the connect timeout**, so it fired first on every cold connection and reported "query timed out" while hiding the real connection error underneath. A timeout that masks the error it should surface is worse than no timeout. The ceiling must always exceed `connect_timeout`.
+
+The shared lesson: each of these turned a connection problem into a symptom somewhere else entirely — a spinner that never resolved, a wall of 500s, or seed data appearing for no visible reason. Failing loudly and at the right layer is not polish; it is the difference between a five-minute fix and an afternoon.

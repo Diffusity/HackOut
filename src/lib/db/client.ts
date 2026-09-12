@@ -15,9 +15,69 @@ import postgres from "postgres";
  * rather than opening a pool that the platform will freeze mid-flight.
  */
 
-let client: postgres.Sql | null = null;
-let initialised = false;
-let lastError: string | null = null;
+/**
+ * Hard ceiling on any single database operation.
+ *
+ * `connect_timeout` only covers establishing a socket. A pooler that accepts
+ * the connection and then queues it forever — which is exactly what a hosted
+ * free tier does when its client limit is reached — leaves the query pending
+ * with no timeout at all. That pending promise propagates all the way up: the
+ * route never responds, the browser fetch never settles, and the dashboard
+ * spins indefinitely with no error anywhere.
+ *
+ * Degrading to the seed after six seconds is always better than a spinner that
+ * never resolves.
+ */
+/**
+ * Must stay LONGER than `connect_timeout` below. When it was shorter, this
+ * timeout fired first on every cold connection and reported "query timed out"
+ * while hiding the actual connection error underneath — which cost a long
+ * debugging session chasing the wrong failure.
+ */
+export const DB_TIMEOUT_MS = 10000;
+
+export class DatabaseTimeout extends Error {
+  constructor(label: string) {
+    super(`${label} exceeded ${DB_TIMEOUT_MS}ms`);
+    this.name = "DatabaseTimeout";
+  }
+}
+
+/** Races a database operation against the ceiling above. */
+export function withTimeout<T>(label: string, run: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new DatabaseTimeout(label)), DB_TIMEOUT_MS);
+    run().then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
+/**
+ * The client is pinned to globalThis, not held in a module-level variable.
+ *
+ * Turbopack re-evaluates modules between requests in dev, and route handlers
+ * live in separate module graphs regardless. A module-level client is therefore
+ * rebuilt constantly, and since postgres.js connects lazily, every request paid
+ * a fresh TCP and TLS handshake to the database — which against a distant
+ * region alone exceeded the query timeout and made every call look like a
+ * failure. One connection per process, reused, is the whole fix.
+ */
+interface ClientStore {
+  __dhansathiSql?: postgres.Sql | null;
+  __dhansathiSqlInit?: boolean;
+  __dhansathiDbError?: string | null;
+}
+const store = globalThis as unknown as ClientStore;
+
+let lastError: string | null = store.__dhansathiDbError ?? null;
 
 export function getDatabaseError(): string | null {
   return lastError;
@@ -25,6 +85,7 @@ export function getDatabaseError(): string | null {
 
 export function recordDatabaseError(message: string): void {
   lastError = message;
+  store.__dhansathiDbError = message;
 }
 
 /**
@@ -54,40 +115,58 @@ function warnIfDirectConnection(url: string): void {
 }
 
 export function getSql(): postgres.Sql | null {
-  if (initialised) return client;
-  initialised = true;
+  if (store.__dhansathiSqlInit) return store.__dhansathiSql ?? null;
+  store.__dhansathiSqlInit = true;
 
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.log("[db] DATABASE_URL not set — using the bundled JSON seed");
+    store.__dhansathiSql = null;
     return null;
   }
   if (url.includes("PASSWORD") || url.includes("[YOUR-PASSWORD]")) {
     lastError = "DATABASE_URL still contains the PASSWORD placeholder";
     console.warn(`[db] ${lastError} — using the bundled JSON seed`);
+    store.__dhansathiSql = null;
     return null;
   }
 
   warnIfDirectConnection(url);
 
   try {
-    client = postgres(url, {
-      max: 1,
+    store.__dhansathiSql = postgres(url, {
+      // NOT 1. A single connection means head-of-line blocking: if that socket
+      // goes stale — and a hosted pooler drops idle clients without telling the
+      // driver — every subsequent query queues behind a dead connection and
+      // hangs. A handful of connections lets a stale one fail on its own while
+      // the rest keep working, which is the entire point of talking to a pooler.
+      max: 4,
+      // Shorter than the pooler's own idle cut-off, so the driver recycles the
+      // socket before the far end silently discards it. Holding connections
+      // longer looks like a saving and is actually how you accumulate dead ones.
       idle_timeout: 20,
-      connect_timeout: 10,
+      connect_timeout: 5,
       prepare: false,
       ssl: url.includes("localhost") ? false : "require",
       onnotice: () => {},
+      // No `connection: { statement_timeout }` here, however tempting. A
+      // transaction-mode pooler (Supavisor, PgBouncer) accepts only a fixed set
+      // of startup parameters; sending it one it does not recognise makes every
+      // query hang rather than fail, which is far worse than having no
+      // server-side timeout. `withTimeout` above is the protection that works.
     });
-    console.log("[db] connected");
+    // Deliberately not "connected": postgres.js connects lazily, so nothing has
+    // reached the database yet. Claiming a connection here is what made a
+    // handshake failure look like a query failure.
+    console.log(`[db] client ready for ${new URL(url).hostname}`);
   } catch (e) {
     // A database that will not connect must degrade to the seed, never take
     // the product down. The banner in the UI says which source is live.
-    console.error("[db] connection failed, falling back to the JSON seed:", e);
-    client = null;
+    console.error("[db] client creation failed, falling back to the JSON seed:", e);
+    store.__dhansathiSql = null;
   }
 
-  return client;
+  return store.__dhansathiSql ?? null;
 }
 
 export function isDatabaseConfigured(): boolean {

@@ -1,4 +1,4 @@
-import { getSql, recordDatabaseError, DataSource } from "./client";
+import { getSql, recordDatabaseError, withTimeout, DataSource } from "./client";
 import { Customer, Transaction, AuditRecord } from "../types";
 import customersSeed from "@/data/customers.json";
 import transactionsSeed from "@/data/transactions.json";
@@ -149,7 +149,7 @@ export async function loadSnapshot(force = false): Promise<Snapshot> {
 
   inflight = (async () => {
     try {
-      const snapshot = await buildDatabaseSnapshot();
+      const snapshot = await withTimeout("loadSnapshot", buildDatabaseSnapshot);
       cached = snapshot;
       return snapshot;
     } catch (e) {
@@ -191,7 +191,7 @@ async function attempt<T>(label: string, fallback: T, run: () => Promise<T>): Pr
   if (!sql) return fallback;
 
   try {
-    return await run();
+    return await withTimeout(label, run);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     recordDatabaseError(message);

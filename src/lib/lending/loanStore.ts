@@ -1,4 +1,4 @@
-import { getSql, recordDatabaseError } from "../db/client";
+import { getSql, recordDatabaseError, withTimeout } from "../db/client";
 import { KeyFactsStatement } from "./keyFactStatement";
 
 /**
@@ -53,7 +53,7 @@ const memory: Map<string, LoanOffer> = (globalStore.__dhansathiOffers ??= new Ma
 async function tryDb<T>(label: string, fallback: T, run: () => Promise<T>): Promise<T> {
   if (!getSql()) return fallback;
   try {
-    return await run();
+    return await withTimeout(label, run);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     recordDatabaseError(message);
