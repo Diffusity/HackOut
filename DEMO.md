@@ -54,7 +54,7 @@ Point at the suppression notice, which names the product that was withheld.
 
 Then the counterfactual panel:
 
-> "And she can see exactly what would reopen the offer: one fewer missed EMI."
+> "And she can see exactly what would reopen the offer: clearing both missed EMIs. One alone is not enough, because the model still sees pressure."
 
 ---
 
