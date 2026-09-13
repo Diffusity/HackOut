@@ -104,7 +104,8 @@ export function Dashboard() {
         if (profRes.ok) setCustomer(await profRes.json());
         if (sigRes.ok) {
           const sigJson = await sigRes.json();
-          setSignals(sigJson.signals);
+          // The signals route returns a ToolResult; the signals live on `output`.
+          setSignals(sigJson.output ?? null);
         }
         if (txnRes.ok) setMonthlyTxns(await txnRes.json());
         if (wellRes.ok) setWellnessData(await wellRes.json());

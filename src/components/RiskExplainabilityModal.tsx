@@ -7,7 +7,23 @@ interface RiskExplainabilityModalProps {
 }
 
 import { useEffect, useState } from "react";
-import { saveAs } from "file-saver";
+
+/**
+ * Native download, no `file-saver`. That package was imported but never added
+ * to package.json, which failed module resolution and took every page of the
+ * app down with a 500. A Blob plus a temporary anchor does the same job.
+ */
+function saveAs(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export function RiskExplainabilityModal({ isOpen, onClose }: RiskExplainabilityModalProps) {
   const [coefficients, setCoefficients] = useState<any[]>([]);
   useEffect(() => {

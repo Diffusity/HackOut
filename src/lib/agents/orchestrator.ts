@@ -355,9 +355,10 @@ export class AgentOrchestrator {
 
     // Advisory-only ML risk signal (ADR-022) — enriches narration, never decides.
     const riskRes = predictRiskScore(this.customerId);
+    const topDriver = riskRes.output.topFactors[0];
     const riskNarration =
       riskRes.output.riskBand === "high"
-        ? ` (ML risk advisory: our experimental model estimates ${(riskRes.output.probability * 100).toFixed(0)}% probability of a missed EMI next month — top driver: ${riskRes.output.topFactors[0]?.feature ?? "n/a"})`
+        ? ` Our experimental risk model also estimates a ${(riskRes.output.probability * 100).toFixed(0)}% chance of a missed EMI next month, driven mainly by ${topDriver?.description ?? topDriver?.feature ?? "recent account activity"}.`
         : "";
 
     logAuditEntry({
@@ -370,8 +371,18 @@ export class AgentOrchestrator {
       reasonTrace: riskRes.reasonTrace,
     });
 
-    const timingNarration = timingRes.output.trigger ? ` (Timing: ${timingRes.output.trigger})` : "";
-    const narration = `Based on your transaction patterns, we recommend ${recRes.output.product}. ${recRes.reasonTrace.join(", ")}.${timingNarration}${riskNarration}`;
+    // Grounded template narration (ADR-024). A merge had reverted this to the
+    // raw reason trace joined with commas ("product=SIP (High savings rate...)"),
+    // which is unreadable for the first-time digital users this product is for.
+    // The facts are identical; only the wording is for humans.
+    const fallbackSignals = getCustomerSignals(this.customerId, this.now).output;
+    const narration =
+      buildNarration({
+        recommendation: recRes.output,
+        signals: fallbackSignals,
+        timing: timingRes.output,
+        wellnessScore: computeStressCore(fallbackSignals).wellnessScore,
+      }) + riskNarration;
     recRes.output.plainLanguageExplanation = narration;
 
     return {
