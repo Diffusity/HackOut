@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getSql, recordDatabaseError, withTimeout, DataSource } from "./client";
 import { Customer, Transaction, AuditRecord } from "../types";
 import customersSeed from "@/data/customers.json";

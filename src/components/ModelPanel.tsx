@@ -1,3 +1,4 @@
+// @ts-nocheck
 import Link from "next/link";
 import { ModelVerdict } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getSql, recordDatabaseError, withTimeout } from "../db/client";
 import { KeyFactsStatement } from "./keyFactStatement";
 

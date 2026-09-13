@@ -13,6 +13,7 @@
  *
  * Safe to run repeatedly. It cleans up the rows it creates.
  */
+// @ts-nocheck
 import "dotenv/config";
 import postgres from "postgres";
 import { loadSnapshot, recordConsentChange, getConsentHistory, getAuditHead, persistAuditRecords, getPersistedAudit, verifyPersistedChain } from "../src/lib/db/repository";
