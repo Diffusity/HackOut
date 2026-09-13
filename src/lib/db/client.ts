@@ -149,6 +149,14 @@ export function getSql(): any | null {
       // longer looks like a saving and is actually how you accumulate dead ones.
       idle_timeout: 20,
       connect_timeout: 5,
+      // Never pipeline. When every connection is busy, postgres.js writes the
+      // next queries onto a connection that is still waiting for a reply.
+      // Supavisor in transaction mode never answers those, so they hang, and
+      // the connection stays wedged for good. The dashboard sends about 15
+      // queries at once, so this happened on every page load: requests stalled
+      // until the 10-second timeout and quietly fell back to the seed. One
+      // query per connection keeps a burst to about a second.
+      max_pipeline: 0,
       prepare: false,
       ssl: url.includes("localhost") ? false : "require",
       onnotice: () => {},
