@@ -36,8 +36,26 @@ let chainBaseHash = GENESIS;
 /** Index into auditLogs of the first record not yet written to the database. */
 let flushedUpTo = 0;
 
-export function seedAuditChain(head: { seq: number; hash: string } | null): void {
-  if (!head) return;
+export function seedAuditChain(head: { seq: number; hash: string } | null | undefined): void {
+  // Unknown (no database, or it did not answer): leave the chain untouched.
+  if (head === undefined) return;
+
+  if (head === null) {
+    // The persisted ledger is empty — it was just created, or deliberately
+    // cleared with `db-setup reset` while this server kept running. Without
+    // this, the server carried on chaining from its stale in-memory hash, so
+    // the first new record pointed at a hash that no longer exists and
+    // verification reported the chain broken at #1. Restart at genesis, but
+    // only once nothing is waiting to be written, so no record is ever dropped.
+    const diverged = chainBaseSeq !== 1 || chainBaseHash !== GENESIS || auditLogs.length > 0;
+    if (diverged && flushedUpTo === auditLogs.length) {
+      chainBaseSeq = 1;
+      chainBaseHash = GENESIS;
+      auditLogs.length = 0;
+      flushedUpTo = 0;
+    }
+    return;
+  }
   // Only move forward. A stale read must never rewind the chain we are building.
   if (head.seq + 1 > chainBaseSeq + auditLogs.length) {
     chainBaseSeq = head.seq + 1;

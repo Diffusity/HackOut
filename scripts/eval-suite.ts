@@ -15,7 +15,14 @@ import { recommendProduct } from "../src/lib/tools/recommendProduct";
 import { applyWellnessGate } from "../src/lib/tools/wellnessGate";
 import { decide, explainCounterfactuals } from "../src/lib/tools/counterfactuals";
 import { checkInputGuardrails, buildScopeRefusal } from "../src/lib/guardrails";
-import { logAuditEntry, verifyChain, __tamperForTest, __resetAuditForTest } from "../src/lib/audit";
+import {
+  logAuditEntry,
+  verifyChain,
+  seedAuditChain,
+  flushAuditToDatabase,
+  __tamperForTest,
+  __resetAuditForTest,
+} from "../src/lib/audit";
 import { buildSms } from "../src/lib/narration";
 import { predictDistress } from "../src/lib/ml/model";
 import { getCustomers } from "../src/lib/data";
@@ -141,6 +148,44 @@ function run() {
     const result = verifyChain();
     assert.strictEqual(result.valid, false);
     assert.strictEqual(result.brokenAt, 1);
+    __resetAuditForTest();
+  });
+  check("A cleared ledger restarts the chain at genesis", () => {
+    const probe = (i: number) =>
+      logAuditEntry({
+        timestamp: new Date(),
+        customerId: "CUST_EVAL",
+        action: "eval_entry",
+        dataAccessed: ["signals"],
+        consentVerified: true,
+        decision: `after reset ${i}`,
+        reasonTrace: [`trace ${i}`],
+      });
+    __resetAuditForTest();
+    seedAuditChain({ seq: 40, hash: "a".repeat(64) });
+    probe(0);
+    flushAuditToDatabase();
+    // The database answers with an empty ledger: it was reset under a live server.
+    seedAuditChain(null);
+    const first = probe(1);
+    assert.strictEqual(first.seq, 1);
+    assert.strictEqual(first.prevHash, "0".repeat(64));
+    assert.strictEqual(verifyChain().valid, true);
+    __resetAuditForTest();
+  });
+  check("An unreachable database never rewinds the chain", () => {
+    __resetAuditForTest();
+    seedAuditChain({ seq: 40, hash: "a".repeat(64) });
+    seedAuditChain(undefined);
+    assert.strictEqual(logAuditEntry({
+      timestamp: new Date(),
+      customerId: "CUST_EVAL",
+      action: "eval_entry",
+      dataAccessed: ["signals"],
+      consentVerified: true,
+      decision: "db down",
+      reasonTrace: ["trace"],
+    }).seq, 41);
     __resetAuditForTest();
   });
 

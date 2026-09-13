@@ -249,9 +249,16 @@ export async function getConsentHistory(customerId: string): Promise<ConsentHist
 
 // ---------------------------------------------------------------- audit
 
-/** The hash the in-process chain must continue from, so it survives restarts. */
-export async function getAuditHead(): Promise<{ seq: number; hash: string } | null> {
-  return attempt("getAuditHead", null as { seq: number; hash: string } | null, async () => {
+/**
+ * The hash the in-process chain must continue from, so it survives restarts.
+ *
+ * `null` means the ledger was read and is genuinely empty. `undefined` means we
+ * could not find out — no database, or it did not answer. The two must not be
+ * conflated: an empty ledger tells the chain to restart at genesis, while an
+ * unanswered query must leave the chain exactly as it is.
+ */
+export async function getAuditHead(): Promise<{ seq: number; hash: string } | null | undefined> {
+  return attempt("getAuditHead", undefined as { seq: number; hash: string } | null | undefined, async () => {
     const rows = await getSql()!<{ seq: string; hash: string }[]>`
       SELECT seq, hash FROM audit_records ORDER BY seq DESC LIMIT 1
     `;
