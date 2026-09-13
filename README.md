@@ -44,7 +44,7 @@ Open **Suresh**: zero missed EMIs, wellness score 85/100, rules say he is fine. 
 
 Not just *why this product* — the question a declined customer actually asks: *what would I have to do differently?* Because every decision function is pure, we search the real pipeline and return the exact minimum change:
 
-> *"If your missed EMIs in 90 days fell to 1 (currently 2), you would see a Systematic Investment Plan instead."*
+> *"If your missed EMIs in 90 days fell to 0 (currently 2), you would see a Systematic Investment Plan instead."*
 
 Ask **"why was I not offered a Home Loan?"** and get a true answer, or an honest "no single change gets you there".
 
